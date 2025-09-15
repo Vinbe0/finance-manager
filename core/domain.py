@@ -16,7 +16,6 @@ class Category:
     parent_id: Optional[str]  
     type: str                 
 
-# A transaction (money in or out)
 @dataclass(frozen=True)
 class Transaction:
     id: str
@@ -34,7 +33,6 @@ class Budget:
     limit: int
     period: str  # e.g. "month" or "week"
 
-# An event (we'll use it later in next labs)
 @dataclass(frozen=True)
 class Event:
     id: str
