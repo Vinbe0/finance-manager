@@ -1,31 +1,1066 @@
 {
   "accounts": [
-    {"id": "a1", "name": "Cash", "balance": 1000, "currency": "USD"},
-    {"id": "a2", "name": "Card", "balance": 2500, "currency": "USD"},
-    {"id": "a3", "name": "Savings", "balance": 5000, "currency": "USD"}
+    {
+      "id": "acc1",
+      "name": "Kaspi",
+      "balance": 50000,
+      "currency": "KZT"
+    },
+    {
+      "id": "acc2",
+      "name": "Halyk",
+      "balance": 75000,
+      "currency": "KZT"
+    },
+    {
+      "id": "acc3",
+      "name": "Cash",
+      "balance": 20000,
+      "currency": "KZT"
+    }
   ],
   "categories": [
-    {"id": "c1", "name": "Food", "parent_id": null, "type": "expense"},
-    {"id": "c2", "name": "Transport", "parent_id": null, "type": "expense"},
-    {"id": "c3", "name": "Leisure", "parent_id": null, "type": "expense"},
-    {"id": "c4", "name": "Groceries", "parent_id": "c1", "type": "expense"},
-    {"id": "c5", "name": "Restaurants", "parent_id": "c1", "type": "expense"},
-    {"id": "c6", "name": "Bus", "parent_id": "c2", "type": "expense"},
-    {"id": "c7", "name": "Taxi", "parent_id": "c2", "type": "expense"},
-    {"id": "c8", "name": "Cinema", "parent_id": "c3", "type": "expense"},
-    {"id": "c9", "name": "Salary", "parent_id": null, "type": "income"},
-    {"id": "c10", "name": "Freelance", "parent_id": null, "type": "income"}
-  ],
-  "transactions": [
-    {"id": "t1", "account_id": "a1", "cat_id": "c4", "amount": -50, "ts": "2025-09-01", "note": "Groceries"},
-    {"id": "t2", "account_id": "a2", "cat_id": "c9", "amount": 2000, "ts": "2025-09-02", "note": "Salary"},
-    {"id": "t3", "account_id": "a2", "cat_id": "c7", "amount": -15, "ts": "2025-09-03", "note": "Taxi"},
-    {"id": "t4", "account_id": "a3", "cat_id": "c10", "amount": 500, "ts": "2025-09-04", "note": "Freelance"},
-    {"id": "t5", "account_id": "a1", "cat_id": "c5", "amount": -30, "ts": "2025-09-05", "note": "Restaurant"}
+    {
+      "id": "cat1",
+      "name": "Питание",
+      "parent_id": null,
+      "type": "expense"
+    },
+    {
+      "id": "cat2",
+      "name": "Продукты",
+      "parent_id": "cat1",
+      "type": "expense"
+    },
+    {
+      "id": "cat3",
+      "name": "Кафе",
+      "parent_id": "cat1",
+      "type": "expense"
+    },
+    {
+      "id": "cat4",
+      "name": "Транспорт",
+      "parent_id": null,
+      "type": "expense"
+    },
+    {
+      "id": "cat5",
+      "name": "Автобус",
+      "parent_id": "cat4",
+      "type": "expense"
+    },
+    {
+      "id": "cat6",
+      "name": "Такси",
+      "parent_id": "cat4",
+      "type": "expense"
+    },
+    {
+      "id": "cat7",
+      "name": "Досуг",
+      "parent_id": null,
+      "type": "expense"
+    },
+    {
+      "id": "cat8",
+      "name": "Кино",
+      "parent_id": "cat7",
+      "type": "expense"
+    },
+    {
+      "id": "cat9",
+      "name": "Игры",
+      "parent_id": "cat7",
+      "type": "expense"
+    },
+    {
+      "id": "cat10",
+      "name": "Доход",
+      "parent_id": null,
+      "type": "income"
+    }
   ],
   "budgets": [
-    {"id": "b1", "cat_id": "c1", "limit": 300, "period": "month"},
-    {"id": "b2", "cat_id": "c2", "limit": 150, "period": "month"},
-    {"id": "b3", "cat_id": "c3", "limit": 200, "period": "month"}
+    {
+      "id": "b1",
+      "cat_id": "cat1",
+      "limit": 50000,
+      "period": "month"
+    },
+    {
+      "id": "b2",
+      "cat_id": "cat4",
+      "limit": 20000,
+      "period": "month"
+    },
+    {
+      "id": "b3",
+      "cat_id": "cat7",
+      "limit": 15000,
+      "period": "month"
+    }
+  ],
+  "transactions": [
+    {
+      "id": "t1",
+      "account_id": "acc2",
+      "cat_id": "cat9",
+      "amount": -1819,
+      "ts": "2025-01-02",
+      "note": "Игры"
+    },
+    {
+      "id": "t2",
+      "account_id": "acc3",
+      "cat_id": "cat9",
+      "amount": -3440,
+      "ts": "2025-01-03",
+      "note": "Игры"
+    },
+    {
+      "id": "t3",
+      "account_id": "acc3",
+      "cat_id": "cat9",
+      "amount": -2997,
+      "ts": "2025-01-04",
+      "note": "Игры"
+    },
+    {
+      "id": "t4",
+      "account_id": "acc3",
+      "cat_id": "cat8",
+      "amount": -3456,
+      "ts": "2025-01-05",
+      "note": "Кино"
+    },
+    {
+      "id": "t5",
+      "account_id": "acc3",
+      "cat_id": "cat3",
+      "amount": -3065,
+      "ts": "2025-01-06",
+      "note": "Кафе"
+    },
+    {
+      "id": "t6",
+      "account_id": "acc3",
+      "cat_id": "cat3",
+      "amount": -2276,
+      "ts": "2025-01-07",
+      "note": "Кафе"
+    },
+    {
+      "id": "t7",
+      "account_id": "acc1",
+      "cat_id": "cat10",
+      "amount": 22716,
+      "ts": "2025-01-08",
+      "note": "Зарплата"
+    },
+    {
+      "id": "t8",
+      "account_id": "acc3",
+      "cat_id": "cat2",
+      "amount": -4120,
+      "ts": "2025-01-09",
+      "note": "Продукты"
+    },
+    {
+      "id": "t9",
+      "account_id": "acc1",
+      "cat_id": "cat6",
+      "amount": -543,
+      "ts": "2025-01-10",
+      "note": "Такси"
+    },
+    {
+      "id": "t10",
+      "account_id": "acc2",
+      "cat_id": "cat9",
+      "amount": -812,
+      "ts": "2025-01-11",
+      "note": "Игры"
+    },
+    {
+      "id": "t11",
+      "account_id": "acc3",
+      "cat_id": "cat6",
+      "amount": -3944,
+      "ts": "2025-01-12",
+      "note": "Такси"
+    },
+    {
+      "id": "t12",
+      "account_id": "acc1",
+      "cat_id": "cat2",
+      "amount": -719,
+      "ts": "2025-01-13",
+      "note": "Продукты"
+    },
+    {
+      "id": "t13",
+      "account_id": "acc2",
+      "cat_id": "cat2",
+      "amount": -4671,
+      "ts": "2025-01-14",
+      "note": "Продукты"
+    },
+    {
+      "id": "t14",
+      "account_id": "acc1",
+      "cat_id": "cat8",
+      "amount": -3902,
+      "ts": "2025-01-15",
+      "note": "Кино"
+    },
+    {
+      "id": "t15",
+      "account_id": "acc2",
+      "cat_id": "cat9",
+      "amount": -4818,
+      "ts": "2025-01-16",
+      "note": "Игры"
+    },
+    {
+      "id": "t16",
+      "account_id": "acc1",
+      "cat_id": "cat8",
+      "amount": -1261,
+      "ts": "2025-01-17",
+      "note": "Кино"
+    },
+    {
+      "id": "t17",
+      "account_id": "acc1",
+      "cat_id": "cat8",
+      "amount": -3136,
+      "ts": "2025-01-18",
+      "note": "Кино"
+    },
+    {
+      "id": "t18",
+      "account_id": "acc1",
+      "cat_id": "cat9",
+      "amount": -2475,
+      "ts": "2025-01-19",
+      "note": "Игры"
+    },
+    {
+      "id": "t19",
+      "account_id": "acc1",
+      "cat_id": "cat9",
+      "amount": -3223,
+      "ts": "2025-01-20",
+      "note": "Игры"
+    },
+    {
+      "id": "t20",
+      "account_id": "acc2",
+      "cat_id": "cat2",
+      "amount": -2224,
+      "ts": "2025-01-21",
+      "note": "Продукты"
+    },
+    {
+      "id": "t21",
+      "account_id": "acc2",
+      "cat_id": "cat3",
+      "amount": -4720,
+      "ts": "2025-01-22",
+      "note": "Кафе"
+    },
+    {
+      "id": "t22",
+      "account_id": "acc2",
+      "cat_id": "cat9",
+      "amount": -1913,
+      "ts": "2025-01-23",
+      "note": "Игры"
+    },
+    {
+      "id": "t23",
+      "account_id": "acc1",
+      "cat_id": "cat8",
+      "amount": -3353,
+      "ts": "2025-01-24",
+      "note": "Кино"
+    },
+    {
+      "id": "t24",
+      "account_id": "acc1",
+      "cat_id": "cat9",
+      "amount": -4404,
+      "ts": "2025-01-25",
+      "note": "Игры"
+    },
+    {
+      "id": "t25",
+      "account_id": "acc1",
+      "cat_id": "cat2",
+      "amount": -1279,
+      "ts": "2025-01-26",
+      "note": "Продукты"
+    },
+    {
+      "id": "t26",
+      "account_id": "acc2",
+      "cat_id": "cat3",
+      "amount": -2437,
+      "ts": "2025-01-27",
+      "note": "Кафе"
+    },
+    {
+      "id": "t27",
+      "account_id": "acc2",
+      "cat_id": "cat9",
+      "amount": -1158,
+      "ts": "2025-01-28",
+      "note": "Игры"
+    },
+    {
+      "id": "t28",
+      "account_id": "acc1",
+      "cat_id": "cat3",
+      "amount": -3177,
+      "ts": "2025-01-29",
+      "note": "Кафе"
+    },
+    {
+      "id": "t29",
+      "account_id": "acc3",
+      "cat_id": "cat8",
+      "amount": -2581,
+      "ts": "2025-01-30",
+      "note": "Кино"
+    },
+    {
+      "id": "t30",
+      "account_id": "acc3",
+      "cat_id": "cat2",
+      "amount": -3897,
+      "ts": "2025-01-31",
+      "note": "Продукты"
+    },
+    {
+      "id": "t31",
+      "account_id": "acc1",
+      "cat_id": "cat8",
+      "amount": -1180,
+      "ts": "2025-02-01",
+      "note": "Кино"
+    },
+    {
+      "id": "t32",
+      "account_id": "acc1",
+      "cat_id": "cat6",
+      "amount": -4524,
+      "ts": "2025-02-02",
+      "note": "Такси"
+    },
+    {
+      "id": "t33",
+      "account_id": "acc3",
+      "cat_id": "cat9",
+      "amount": -1223,
+      "ts": "2025-02-03",
+      "note": "Игры"
+    },
+    {
+      "id": "t34",
+      "account_id": "acc3",
+      "cat_id": "cat6",
+      "amount": -2717,
+      "ts": "2025-02-04",
+      "note": "Такси"
+    },
+    {
+      "id": "t35",
+      "account_id": "acc3",
+      "cat_id": "cat8",
+      "amount": -3719,
+      "ts": "2025-02-05",
+      "note": "Кино"
+    },
+    {
+      "id": "t36",
+      "account_id": "acc1",
+      "cat_id": "cat2",
+      "amount": -4234,
+      "ts": "2025-02-06",
+      "note": "Продукты"
+    },
+    {
+      "id": "t37",
+      "account_id": "acc1",
+      "cat_id": "cat6",
+      "amount": -3718,
+      "ts": "2025-02-07",
+      "note": "Такси"
+    },
+    {
+      "id": "t38",
+      "account_id": "acc2",
+      "cat_id": "cat2",
+      "amount": -4481,
+      "ts": "2025-02-08",
+      "note": "Продукты"
+    },
+    {
+      "id": "t39",
+      "account_id": "acc2",
+      "cat_id": "cat9",
+      "amount": -2465,
+      "ts": "2025-02-09",
+      "note": "Игры"
+    },
+    {
+      "id": "t40",
+      "account_id": "acc1",
+      "cat_id": "cat10",
+      "amount": 16370,
+      "ts": "2025-02-10",
+      "note": "Зарплата"
+    },
+    {
+      "id": "t41",
+      "account_id": "acc3",
+      "cat_id": "cat8",
+      "amount": -153,
+      "ts": "2025-02-11",
+      "note": "Кино"
+    },
+    {
+      "id": "t42",
+      "account_id": "acc1",
+      "cat_id": "cat8",
+      "amount": -132,
+      "ts": "2025-02-12",
+      "note": "Кино"
+    },
+    {
+      "id": "t43",
+      "account_id": "acc3",
+      "cat_id": "cat8",
+      "amount": -3036,
+      "ts": "2025-02-13",
+      "note": "Кино"
+    },
+    {
+      "id": "t44",
+      "account_id": "acc1",
+      "cat_id": "cat6",
+      "amount": -2551,
+      "ts": "2025-02-14",
+      "note": "Такси"
+    },
+    {
+      "id": "t45",
+      "account_id": "acc1",
+      "cat_id": "cat3",
+      "amount": -3283,
+      "ts": "2025-02-15",
+      "note": "Кафе"
+    },
+    {
+      "id": "t46",
+      "account_id": "acc1",
+      "cat_id": "cat6",
+      "amount": -3677,
+      "ts": "2025-02-16",
+      "note": "Такси"
+    },
+    {
+      "id": "t47",
+      "account_id": "acc3",
+      "cat_id": "cat6",
+      "amount": -381,
+      "ts": "2025-02-17",
+      "note": "Такси"
+    },
+    {
+      "id": "t48",
+      "account_id": "acc3",
+      "cat_id": "cat3",
+      "amount": -2854,
+      "ts": "2025-02-18",
+      "note": "Кафе"
+    },
+    {
+      "id": "t49",
+      "account_id": "acc3",
+      "cat_id": "cat8",
+      "amount": -5000,
+      "ts": "2025-02-19",
+      "note": "Кино"
+    },
+    {
+      "id": "t50",
+      "account_id": "acc2",
+      "cat_id": "cat9",
+      "amount": -2351,
+      "ts": "2025-02-20",
+      "note": "Игры"
+    },
+    {
+      "id": "t51",
+      "account_id": "acc3",
+      "cat_id": "cat9",
+      "amount": -4086,
+      "ts": "2025-02-21",
+      "note": "Игры"
+    },
+    {
+      "id": "t52",
+      "account_id": "acc2",
+      "cat_id": "cat8",
+      "amount": -3016,
+      "ts": "2025-02-22",
+      "note": "Кино"
+    },
+    {
+      "id": "t53",
+      "account_id": "acc2",
+      "cat_id": "cat8",
+      "amount": -2344,
+      "ts": "2025-02-23",
+      "note": "Кино"
+    },
+    {
+      "id": "t54",
+      "account_id": "acc1",
+      "cat_id": "cat10",
+      "amount": 18469,
+      "ts": "2025-02-24",
+      "note": "Зарплата"
+    },
+    {
+      "id": "t55",
+      "account_id": "acc1",
+      "cat_id": "cat9",
+      "amount": -1670,
+      "ts": "2025-02-25",
+      "note": "Игры"
+    },
+    {
+      "id": "t56",
+      "account_id": "acc2",
+      "cat_id": "cat3",
+      "amount": -116,
+      "ts": "2025-02-26",
+      "note": "Кафе"
+    },
+    {
+      "id": "t57",
+      "account_id": "acc2",
+      "cat_id": "cat5",
+      "amount": -3710,
+      "ts": "2025-02-27",
+      "note": "Автобус"
+    },
+    {
+      "id": "t58",
+      "account_id": "acc1",
+      "cat_id": "cat9",
+      "amount": -4908,
+      "ts": "2025-02-28",
+      "note": "Игры"
+    },
+    {
+      "id": "t59",
+      "account_id": "acc3",
+      "cat_id": "cat8",
+      "amount": -2236,
+      "ts": "2025-03-01",
+      "note": "Кино"
+    },
+    {
+      "id": "t60",
+      "account_id": "acc2",
+      "cat_id": "cat5",
+      "amount": -1726,
+      "ts": "2025-03-02",
+      "note": "Автобус"
+    },
+    {
+      "id": "t61",
+      "account_id": "acc1",
+      "cat_id": "cat5",
+      "amount": -699,
+      "ts": "2025-03-03",
+      "note": "Автобус"
+    },
+    {
+      "id": "t62",
+      "account_id": "acc1",
+      "cat_id": "cat2",
+      "amount": -3439,
+      "ts": "2025-03-04",
+      "note": "Продукты"
+    },
+    {
+      "id": "t63",
+      "account_id": "acc1",
+      "cat_id": "cat3",
+      "amount": -2132,
+      "ts": "2025-03-05",
+      "note": "Кафе"
+    },
+    {
+      "id": "t64",
+      "account_id": "acc3",
+      "cat_id": "cat10",
+      "amount": 18879,
+      "ts": "2025-03-06",
+      "note": "Зарплата"
+    },
+    {
+      "id": "t65",
+      "account_id": "acc2",
+      "cat_id": "cat8",
+      "amount": -1629,
+      "ts": "2025-03-07",
+      "note": "Кино"
+    },
+    {
+      "id": "t66",
+      "account_id": "acc2",
+      "cat_id": "cat10",
+      "amount": 29498,
+      "ts": "2025-03-08",
+      "note": "Зарплата"
+    },
+    {
+      "id": "t67",
+      "account_id": "acc3",
+      "cat_id": "cat10",
+      "amount": 28646,
+      "ts": "2025-03-09",
+      "note": "Зарплата"
+    },
+    {
+      "id": "t68",
+      "account_id": "acc2",
+      "cat_id": "cat10",
+      "amount": 17470,
+      "ts": "2025-03-10",
+      "note": "Зарплата"
+    },
+    {
+      "id": "t69",
+      "account_id": "acc1",
+      "cat_id": "cat8",
+      "amount": -1514,
+      "ts": "2025-03-11",
+      "note": "Кино"
+    },
+    {
+      "id": "t70",
+      "account_id": "acc1",
+      "cat_id": "cat8",
+      "amount": -1938,
+      "ts": "2025-03-12",
+      "note": "Кино"
+    },
+    {
+      "id": "t71",
+      "account_id": "acc3",
+      "cat_id": "cat3",
+      "amount": -2594,
+      "ts": "2025-03-13",
+      "note": "Кафе"
+    },
+    {
+      "id": "t72",
+      "account_id": "acc1",
+      "cat_id": "cat3",
+      "amount": -4385,
+      "ts": "2025-03-14",
+      "note": "Кафе"
+    },
+    {
+      "id": "t73",
+      "account_id": "acc2",
+      "cat_id": "cat10",
+      "amount": 26883,
+      "ts": "2025-03-15",
+      "note": "Зарплата"
+    },
+    {
+      "id": "t74",
+      "account_id": "acc2",
+      "cat_id": "cat6",
+      "amount": -3557,
+      "ts": "2025-03-16",
+      "note": "Такси"
+    },
+    {
+      "id": "t75",
+      "account_id": "acc1",
+      "cat_id": "cat6",
+      "amount": -1182,
+      "ts": "2025-03-17",
+      "note": "Такси"
+    },
+    {
+      "id": "t76",
+      "account_id": "acc2",
+      "cat_id": "cat10",
+      "amount": 27531,
+      "ts": "2025-03-18",
+      "note": "Зарплата"
+    },
+    {
+      "id": "t77",
+      "account_id": "acc3",
+      "cat_id": "cat10",
+      "amount": 13670,
+      "ts": "2025-03-19",
+      "note": "Зарплата"
+    },
+    {
+      "id": "t78",
+      "account_id": "acc2",
+      "cat_id": "cat5",
+      "amount": -199,
+      "ts": "2025-03-20",
+      "note": "Автобус"
+    },
+    {
+      "id": "t79",
+      "account_id": "acc1",
+      "cat_id": "cat3",
+      "amount": -2087,
+      "ts": "2025-03-21",
+      "note": "Кафе"
+    },
+    {
+      "id": "t80",
+      "account_id": "acc2",
+      "cat_id": "cat10",
+      "amount": 12376,
+      "ts": "2025-03-22",
+      "note": "Зарплата"
+    },
+    {
+      "id": "t81",
+      "account_id": "acc3",
+      "cat_id": "cat5",
+      "amount": -4160,
+      "ts": "2025-03-23",
+      "note": "Автобус"
+    },
+    {
+      "id": "t82",
+      "account_id": "acc1",
+      "cat_id": "cat6",
+      "amount": -2731,
+      "ts": "2025-03-24",
+      "note": "Такси"
+    },
+    {
+      "id": "t83",
+      "account_id": "acc1",
+      "cat_id": "cat5",
+      "amount": -298,
+      "ts": "2025-03-25",
+      "note": "Автобус"
+    },
+    {
+      "id": "t84",
+      "account_id": "acc1",
+      "cat_id": "cat8",
+      "amount": -2929,
+      "ts": "2025-03-26",
+      "note": "Кино"
+    },
+    {
+      "id": "t85",
+      "account_id": "acc1",
+      "cat_id": "cat10",
+      "amount": 25081,
+      "ts": "2025-03-27",
+      "note": "Зарплата"
+    },
+    {
+      "id": "t86",
+      "account_id": "acc1",
+      "cat_id": "cat2",
+      "amount": -4064,
+      "ts": "2025-03-28",
+      "note": "Продукты"
+    },
+    {
+      "id": "t87",
+      "account_id": "acc2",
+      "cat_id": "cat8",
+      "amount": -4857,
+      "ts": "2025-03-29",
+      "note": "Кино"
+    },
+    {
+      "id": "t88",
+      "account_id": "acc2",
+      "cat_id": "cat10",
+      "amount": 24601,
+      "ts": "2025-03-30",
+      "note": "Зарплата"
+    },
+    {
+      "id": "t89",
+      "account_id": "acc1",
+      "cat_id": "cat3",
+      "amount": -2562,
+      "ts": "2025-03-31",
+      "note": "Кафе"
+    },
+    {
+      "id": "t90",
+      "account_id": "acc2",
+      "cat_id": "cat10",
+      "amount": 6954,
+      "ts": "2025-04-01",
+      "note": "Зарплата"
+    },
+    {
+      "id": "t91",
+      "account_id": "acc2",
+      "cat_id": "cat9",
+      "amount": -2549,
+      "ts": "2025-04-02",
+      "note": "Игры"
+    },
+    {
+      "id": "t92",
+      "account_id": "acc3",
+      "cat_id": "cat6",
+      "amount": -2505,
+      "ts": "2025-04-03",
+      "note": "Такси"
+    },
+    {
+      "id": "t93",
+      "account_id": "acc2",
+      "cat_id": "cat10",
+      "amount": 12514,
+      "ts": "2025-04-04",
+      "note": "Зарплата"
+    },
+    {
+      "id": "t94",
+      "account_id": "acc2",
+      "cat_id": "cat9",
+      "amount": -1009,
+      "ts": "2025-04-05",
+      "note": "Игры"
+    },
+    {
+      "id": "t95",
+      "account_id": "acc1",
+      "cat_id": "cat6",
+      "amount": -2894,
+      "ts": "2025-04-06",
+      "note": "Такси"
+    },
+    {
+      "id": "t96",
+      "account_id": "acc2",
+      "cat_id": "cat6",
+      "amount": -3027,
+      "ts": "2025-04-07",
+      "note": "Такси"
+    },
+    {
+      "id": "t97",
+      "account_id": "acc1",
+      "cat_id": "cat3",
+      "amount": -1543,
+      "ts": "2025-04-08",
+      "note": "Кафе"
+    },
+    {
+      "id": "t98",
+      "account_id": "acc3",
+      "cat_id": "cat2",
+      "amount": -920,
+      "ts": "2025-04-09",
+      "note": "Продукты"
+    },
+    {
+      "id": "t99",
+      "account_id": "acc3",
+      "cat_id": "cat3",
+      "amount": -1310,
+      "ts": "2025-04-10",
+      "note": "Кафе"
+    },
+    {
+      "id": "t100",
+      "account_id": "acc2",
+      "cat_id": "cat3",
+      "amount": -3502,
+      "ts": "2025-04-11",
+      "note": "Кафе"
+    },
+    {
+      "id": "t101",
+      "account_id": "acc2",
+      "cat_id": "cat3",
+      "amount": -1013,
+      "ts": "2025-04-12",
+      "note": "Кафе"
+    },
+    {
+      "id": "t102",
+      "account_id": "acc2",
+      "cat_id": "cat8",
+      "amount": -3559,
+      "ts": "2025-04-13",
+      "note": "Кино"
+    },
+    {
+      "id": "t103",
+      "account_id": "acc1",
+      "cat_id": "cat10",
+      "amount": 11969,
+      "ts": "2025-04-14",
+      "note": "Зарплата"
+    },
+    {
+      "id": "t104",
+      "account_id": "acc2",
+      "cat_id": "cat3",
+      "amount": -394,
+      "ts": "2025-04-15",
+      "note": "Кафе"
+    },
+    {
+      "id": "t105",
+      "account_id": "acc3",
+      "cat_id": "cat5",
+      "amount": -4180,
+      "ts": "2025-04-16",
+      "note": "Автобус"
+    },
+    {
+      "id": "t106",
+      "account_id": "acc2",
+      "cat_id": "cat5",
+      "amount": -1183,
+      "ts": "2025-04-17",
+      "note": "Автобус"
+    },
+    {
+      "id": "t107",
+      "account_id": "acc3",
+      "cat_id": "cat3",
+      "amount": -2802,
+      "ts": "2025-04-18",
+      "note": "Кафе"
+    },
+    {
+      "id": "t108",
+      "account_id": "acc3",
+      "cat_id": "cat10",
+      "amount": 13050,
+      "ts": "2025-04-19",
+      "note": "Зарплата"
+    },
+    {
+      "id": "t109",
+      "account_id": "acc2",
+      "cat_id": "cat8",
+      "amount": -353,
+      "ts": "2025-04-20",
+      "note": "Кино"
+    },
+    {
+      "id": "t110",
+      "account_id": "acc3",
+      "cat_id": "cat5",
+      "amount": -1437,
+      "ts": "2025-04-21",
+      "note": "Автобус"
+    },
+    {
+      "id": "t111",
+      "account_id": "acc2",
+      "cat_id": "cat8",
+      "amount": -386,
+      "ts": "2025-04-22",
+      "note": "Кино"
+    },
+    {
+      "id": "t112",
+      "account_id": "acc2",
+      "cat_id": "cat6",
+      "amount": -2992,
+      "ts": "2025-04-23",
+      "note": "Такси"
+    },
+    {
+      "id": "t113",
+      "account_id": "acc2",
+      "cat_id": "cat5",
+      "amount": -301,
+      "ts": "2025-04-24",
+      "note": "Автобус"
+    },
+    {
+      "id": "t114",
+      "account_id": "acc1",
+      "cat_id": "cat6",
+      "amount": -2074,
+      "ts": "2025-04-25",
+      "note": "Такси"
+    },
+    {
+      "id": "t115",
+      "account_id": "acc1",
+      "cat_id": "cat5",
+      "amount": -931,
+      "ts": "2025-04-26",
+      "note": "Автобус"
+    },
+    {
+      "id": "t116",
+      "account_id": "acc1",
+      "cat_id": "cat9",
+      "amount": -4459,
+      "ts": "2025-04-27",
+      "note": "Игры"
+    },
+    {
+      "id": "t117",
+      "account_id": "acc2",
+      "cat_id": "cat10",
+      "amount": 17680,
+      "ts": "2025-04-28",
+      "note": "Зарплата"
+    },
+    {
+      "id": "t118",
+      "account_id": "acc1",
+      "cat_id": "cat2",
+      "amount": -3933,
+      "ts": "2025-04-29",
+      "note": "Продукты"
+    },
+    {
+      "id": "t119",
+      "account_id": "acc3",
+      "cat_id": "cat2",
+      "amount": -4971,
+      "ts": "2025-04-30",
+      "note": "Продукты"
+    },
+    {
+      "id": "t120",
+      "account_id": "acc3",
+      "cat_id": "cat6",
+      "amount": -1872,
+      "ts": "2025-05-01",
+      "note": "Такси"
+    }
   ]
 }
