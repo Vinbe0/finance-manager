@@ -1,5 +1,7 @@
 import streamlit as st
 from core.transforms import load_seed, account_balance
+from core.transforms import income_transactions, expense_transactions, transaction_amounts
+
 
 st.set_page_config(page_title="Finance Manager", layout="wide")
 
@@ -31,4 +33,12 @@ elif menu == "Data":
 
 elif menu == "Functional Core":
     st.title("⚙️ Functional Core")
-    st.write("Здесь позже будем вызывать add_transaction, update_budget и т.д.")
+    st.subheader("Demo: map / filter / reduce")
+
+    st.write(f"- Доходных транзакций: {len(income_transactions(transactions))}")
+    st.write(f"- Расходных транзакций: {len(expense_transactions(transactions))}")
+    st.write(f"- Первые 5 сумм (map): {transaction_amounts(transactions)[:5]}")
+
+    acc = accounts[0]
+    st.write(f"- Баланс первого аккаунта ({acc.name}): {account_balance(transactions, acc.id)} KZT")
+

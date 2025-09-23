@@ -51,3 +51,17 @@ def account_balance(trans: Tuple[Transaction, ...], acc_id: str) -> int:
     return reduce(
         lambda acc, t: acc + t.amount if t.account_id == acc_id else acc, trans, 0
     )
+
+def income_transactions(trans: Tuple[Transaction, ...]) -> Tuple[Transaction, ...]:
+    """Фильтруем все доходы (amount > 0)"""
+    return tuple(filter(lambda t: t.amount > 0, trans))
+
+
+def expense_transactions(trans: Tuple[Transaction, ...]) -> Tuple[Transaction, ...]:
+    """Фильтруем все расходы (amount < 0)"""
+    return tuple(filter(lambda t: t.amount < 0, trans))
+
+
+def transaction_amounts(trans: Tuple[Transaction, ...]) -> Tuple[int, ...]:
+    """Достаём только суммы всех транзакций"""
+    return tuple(map(lambda t: t.amount, trans))
