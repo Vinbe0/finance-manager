@@ -12,7 +12,6 @@ def load_seed(
     Tuple[Transaction, ...],
     Tuple[Budget, ...],
 ]:
-    """Загружает seed.json и возвращает кортежи (accounts, categories, transactions, budgets)"""
     with open(path, "r", encoding="utf-8") as f:
         data = json.load(f)
 
@@ -27,14 +26,12 @@ def load_seed(
 def add_transaction(
     trans: Tuple[Transaction, ...], t: Transaction
 ) -> Tuple[Transaction, ...]:
-    """Добавляет транзакцию в кортеж и возвращает новый кортеж"""
     return trans + (t,)
 
 
 def update_budget(
     budgets: Tuple[Budget, ...], bid: str, new_limit: int
 ) -> Tuple[Budget, ...]:
-    """Обновляет бюджет иммутабельно"""
     return tuple(
         Budget(
             id=b.id,
@@ -47,21 +44,18 @@ def update_budget(
 
 
 def account_balance(trans: Tuple[Transaction, ...], acc_id: str) -> int:
-    """Считает баланс по аккаунту через reduce"""
     return reduce(
         lambda acc, t: acc + t.amount if t.account_id == acc_id else acc, trans, 0
     )
 
+
 def income_transactions(trans: Tuple[Transaction, ...]) -> Tuple[Transaction, ...]:
-    """Фильтруем все доходы (amount > 0)"""
     return tuple(filter(lambda t: t.amount > 0, trans))
 
 
 def expense_transactions(trans: Tuple[Transaction, ...]) -> Tuple[Transaction, ...]:
-    """Фильтруем все расходы (amount < 0)"""
     return tuple(filter(lambda t: t.amount < 0, trans))
 
 
 def transaction_amounts(trans: Tuple[Transaction, ...]) -> Tuple[int, ...]:
-    """Достаём только суммы всех транзакций"""
     return tuple(map(lambda t: t.amount, trans))

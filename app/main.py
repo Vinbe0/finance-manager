@@ -1,13 +1,17 @@
 import streamlit as st
 from core.transforms import load_seed, account_balance
-from core.transforms import income_transactions, expense_transactions, transaction_amounts
+from core.transforms import (
+    income_transactions,
+    expense_transactions,
+    transaction_amounts,
+)
 
 
 st.set_page_config(page_title="Finance Manager", layout="wide")
 
 accounts, categories, transactions, budgets = load_seed("data/seed.json")
 
-menu = st.sidebar.radio("Меню", ["Overview", "Data", "Functional Core"])
+menu = st.sidebar.radio("Меню", ["Overview", "Data", "Functional Core", "Categories"])
 
 if menu == "Overview":
     st.title("💰 Finance Manager - Overview")
@@ -40,5 +44,21 @@ elif menu == "Functional Core":
     st.write(f"- Первые 5 сумм (map): {transaction_amounts(transactions)[:5]}")
 
     acc = accounts[0]
-    st.write(f"- Баланс первого аккаунта ({acc.name}): {account_balance(transactions, acc.id)} KZT")
+    st.write(
+        f"- Баланс первого аккаунта ({acc.name}): {account_balance(transactions, acc.id)} KZT"
+    )
+
+elif menu == "Categories":
+    st.title("📂 Categories & Recursion")
+
+    cat_names = {c.name: c.id for c in categories}
+    selected_name = st.selectbox("Выберите категорию", list(cat_names.keys()))
+    selected_id = cat_names[selected_name]
+
+    subs = get_subcategories(categories, selected_id)
+    total = sum_by_category(transactions, categories, selected_id)
+
+    st.write(f"Подкатегории категории **{selected_name}**:")
+    st.json([c.__dict__ for c in subs])
+    st.metric("Сумма по категории (с подкатегориями)", f"{total} KZT")
 
