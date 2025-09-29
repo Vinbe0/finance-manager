@@ -1,4 +1,5 @@
 import streamlit as st
+from core.recursion import flatten_categories, sum_expenses_recursive
 from core.transforms import load_seed, account_balance
 from core.transforms import (
     income_transactions,
@@ -11,7 +12,7 @@ st.set_page_config(page_title="Finance Manager", layout="wide")
 
 accounts, categories, transactions, budgets = load_seed("data/seed.json")
 
-menu = st.sidebar.radio("Меню", ["Overview", "Data", "Functional Core", "Categories"])
+menu = st.sidebar.radio("Меню", ["Overview", "Data", "Functional Core", "Pipelines"])
 
 if menu == "Overview":
     st.title("💰 Finance Manager - Overview")
@@ -36,8 +37,22 @@ elif menu == "Data":
         st.json([b.__dict__ for b in budgets])
 
 elif menu == "Functional Core":
+    from core.recursion import by_category, by_date_range, by_amount_range
+
     st.title("⚙️ Functional Core")
     st.subheader("Demo: map / filter / reduce")
+    st.subheader("🔎 Filters demo")
+
+    food_id = categories[0].id  
+    food_trans = list(filter(by_category(food_id), transactions))
+    st.write(f"Транзакций в категории {categories[0].name}: {len(food_trans)}")
+
+    date_trans = list(filter(by_date_range("2024-01-01", "2024-12-31"), transactions))
+    st.write(f"Транзакций за 2024 год: {len(date_trans)}")
+
+    amount_trans = list(filter(by_amount_range(-5000, -1000), transactions))
+    st.write(f"Расходов от -5000 до -1000: {len(amount_trans)}")
+
 
     st.write(f"- Доходных транзакций: {len(income_transactions(transactions))}")
     st.write(f"- Расходных транзакций: {len(expense_transactions(transactions))}")
@@ -48,17 +63,19 @@ elif menu == "Functional Core":
         f"- Баланс первого аккаунта ({acc.name}): {account_balance(transactions, acc.id)} KZT"
     )
 
-elif menu == "Categories":
-    st.title("📂 Categories & Recursion")
+elif menu == "Pipelines":
+    st.title("📊 Pipelines & Recursion")
 
     cat_names = {c.name: c.id for c in categories}
     selected_name = st.selectbox("Выберите категорию", list(cat_names.keys()))
     selected_id = cat_names[selected_name]
 
-    subs = get_subcategories(categories, selected_id)
-    total = sum_by_category(transactions, categories, selected_id)
+    subs = flatten_categories(categories, selected_id)
+    total = sum_expenses_recursive(categories, transactions, selected_id)
 
     st.write(f"Подкатегории категории **{selected_name}**:")
-    st.json([c.__dict__ for c in subs])
-    st.metric("Сумма по категории (с подкатегориями)", f"{total} KZT")
+    for c in subs:
+        st.write(f"- {c.name}")
+
+    st.metric("Сумма расходов (с учётом подкатегорий)", f"{abs(total)} KZT")
 
