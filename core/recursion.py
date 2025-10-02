@@ -1,4 +1,27 @@
+from functools import lru_cache
+from collections import defaultdict
 from core.domain import Category, Transaction
+
+
+@lru_cache
+def forecast_expenses(cat_id: str, trans: tuple[Transaction, ...], period: int) -> int:
+    monthly = defaultdict(int)
+
+    for t in trans:
+        if t.cat_id == cat_id and t.amount < 0: 
+            month = t.ts[:7] 
+            monthly[month] += t.amount
+
+    if not monthly:
+        return 0
+
+    sorted_months = sorted(monthly.keys())[-period:]
+    values = [monthly[m] for m in sorted_months]
+
+    return sum(values) // len(values)
+
+
+
 
 
 def by_category(cat_id: str):
