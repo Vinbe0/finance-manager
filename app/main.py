@@ -45,7 +45,13 @@ def tx_to_df(tx_list):
 
 df = tx_to_df(transactions)
 
-menu = st.sidebar.radio("Меню", ["🏠 Overview", "📂 Data", "⚙️ Functional Core", "🔁 Pipelines", "📈 Reports"])
+if "manual_df" not in st.session_state:
+    st.session_state.manual_df = pd.DataFrame(columns=["date", "amount", "category", "account", "description"])
+
+menu = st.sidebar.radio(
+    "Меню",
+    ["🏠 Overview", "📂 Data", "✏️ Input Data", "⚙️ Functional Core", "🔁 Pipelines", "📈 Reports"]
+)
 
 if menu == "🏠 Overview":
     total_balance = sum(account_balance(transactions, acc.id) for acc in accounts)
@@ -77,14 +83,8 @@ if menu == "🏠 Overview":
         df["date"] = pd.to_datetime(df["date"], errors="coerce")
 
     if not df.empty and df["date"].notna().any():
-        try:
-            inc_m = df[df["amount"] > 0].set_index("date").resample("M")["amount"].sum().reindex(months, fill_value=0)
-            exp_m = (-df[df["amount"] < 0].set_index("date").resample("M")["amount"].sum()).reindex(months, fill_value=0)
-        except:
-            tmp = df.copy()
-            tmp["date"] = pd.to_datetime(tmp["date"], errors="coerce")
-            inc_m = tmp[tmp["amount"] > 0].set_index("date").resample("M")["amount"].sum().reindex(months, fill_value=0)
-            exp_m = (-tmp[tmp["amount"] < 0].set_index("date").resample("M")["amount"].sum()).reindex(months, fill_value=0)
+        inc_m = df[df["amount"] > 0].set_index("date").resample("M")["amount"].sum().reindex(months, fill_value=0)
+        exp_m = (-df[df["amount"] < 0].set_index("date").resample("M")["amount"].sum()).reindex(months, fill_value=0)
     else:
         inc_m = pd.Series(np.zeros(len(months)), index=months)
         exp_m = pd.Series(np.zeros(len(months)), index=months)
@@ -117,6 +117,39 @@ elif menu == "📂 Data":
         st.json([t.__dict__ for t in transactions[:20]])
     with st.expander("Budgets"):
         st.json([b.__dict__ for b in budgets])
+
+elif menu == "✏️ Input Data":
+    st.title("✏️ Ввод новой транзакции")
+    with st.form("input_form", clear_on_submit=True):
+        col1, col2 = st.columns(2)
+        with col1:
+            date = st.date_input("Дата")
+            amount = st.number_input("Сумма (KZT)", step=100.0, format="%.2f")
+        with col2:
+            category = st.selectbox("Категория", [c.name for c in categories])
+            account = st.selectbox("Аккаунт", [a.name for a in accounts])
+        description = st.text_input("Описание (необязательно)")
+        submitted = st.form_submit_button("Добавить")
+
+        if submitted:
+            new_row = {
+                "date": pd.to_datetime(date),
+                "amount": amount,
+                "category": category,
+                "account": account,
+                "description": description,
+            }
+            st.session_state.manual_df = pd.concat([st.session_state.manual_df, pd.DataFrame([new_row])], ignore_index=True)
+            st.success("✅ Транзакция добавлена!")
+
+    if not st.session_state.manual_df.empty:
+        st.subheader("📋 Введённые транзакции")
+        disp = st.session_state.manual_df.copy()
+        disp["date"] = pd.to_datetime(disp["date"], errors="coerce").dt.strftime("%Y-%m-%d")
+        disp["amount"] = disp["amount"].map(lambda x: f"{x:,.0f} KZT")
+        st.table(disp)
+        csv = disp.to_csv(index=False)
+        st.download_button("⬇ Скачать CSV", csv, file_name="manual_transactions.csv")
 
 elif menu == "⚙️ Functional Core":
     from core.recursion import by_category, by_date_range, by_amount_range
