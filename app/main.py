@@ -153,7 +153,72 @@ elif menu == "✏️ Input Data":
 
 elif menu == "⚙️ Functional Core":
     from core.recursion import by_category, by_date_range, by_amount_range
+    from core.functional import safe_category, validate_transaction, check_budget
+    from core.domain import Transaction
+    
     st.title("⚙️ Functional Core")
+    
+    # Lab #4 - Functional Patterns Section
+    st.subheader("🔧 Lab #4 - Functional Patterns (Maybe/Either)")
+    
+    # Validation Pipeline Demo
+    st.write("**Pipeline валидации транзакции:**")
+    
+    # Create a test transaction for validation
+    test_transaction = Transaction(
+        id="test_tx",
+        account_id=accounts[0].id,
+        cat_id=categories[0].id,
+        amount=-1000,
+        ts="2025-01-01",
+        note="Test transaction"
+    )
+    
+    # Step 1: Check if account exists
+    st.write("1. **Проверка существования счёта:**")
+    account_exists = any(acc.id == test_transaction.account_id for acc in accounts)
+    if account_exists:
+        st.success(f"✅ Счёт найден: {accounts[0].name}")
+    else:
+        st.error("❌ Счёт не найден")
+    
+    # Step 2: Check if category exists using safe_category
+    st.write("2. **Проверка существования категории:**")
+    category_result = safe_category(categories, test_transaction.cat_id)
+    if category_result.is_some():
+        category = category_result.get_or_else(None)
+        st.success(f"✅ Категория найдена: {category.name}")
+    else:
+        st.error("❌ Категория не найдена")
+    
+    # Step 3: Validate transaction using Either
+    st.write("3. **Валидация транзакции:**")
+    validation_result = validate_transaction(test_transaction, accounts, categories)
+    if validation_result.is_right():
+        st.success("✅ Транзакция валидна")
+    else:
+        error = validation_result.get_error()
+        st.error(f"❌ Ошибка валидации: {error['message']}")
+    
+    # Step 4: Check budget using Either
+    st.write("4. **Проверка бюджета:**")
+    if budgets:
+        budget_result = check_budget(budgets[0], transactions)
+        if budget_result.is_right():
+            st.success(f"✅ Бюджет не превышен для категории {budgets[0].cat_id}")
+        else:
+            error = budget_result.get_error()
+            st.error(f"❌ Бюджет превышен: {error['message']}")
+            st.write(f"Лимит: {error['limit']:,} KZT")
+            st.write(f"Потрачено: {error['spent']:,} KZT")
+            st.write(f"Превышение: {error['over_budget']:,} KZT")
+    else:
+        st.info("Нет бюджетов для проверки")
+    
+    st.divider()
+    
+    # Original Functional Core content
+    st.subheader("🔧 Лабы 1-3 - Функциональные трансформации")
     food_id = categories[0].id
     food_trans = list(filter(by_category(food_id), transactions))
     st.write(f"Транзакций в категории {categories[0].name}: {len(food_trans)}")
