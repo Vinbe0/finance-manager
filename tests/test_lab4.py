@@ -148,7 +148,7 @@ def test_validate_transaction_category_type_mismatch():
         Category("cat2", "Salary", None, "income"),
     )
     
-    # Test negative amount in income category
+    
     transaction = Transaction("t1", "acc1", "cat2", -100, "2025-01-01", "Salary")
     result = validate_transaction(transaction, accounts, categories)
     
@@ -157,7 +157,7 @@ def test_validate_transaction_category_type_mismatch():
     assert error["error"] == "category_type_mismatch"
     assert "Income category" in error["message"]
     
-    # Test positive amount in expense category
+    
     transaction2 = Transaction("t2", "acc1", "cat1", 100, "2025-01-01", "Food")
     result2 = validate_transaction(transaction2, accounts, categories)
     
@@ -205,12 +205,12 @@ def test_check_budget_ignores_income():
     budget = Budget("b1", "cat1", 1000, "month")
     transactions = (
         Transaction("t1", "acc1", "cat1", -300, "2025-01-01", "Groceries"),
-        Transaction("t2", "acc1", "cat1", 5000, "2025-01-02", "Salary"),  # Should be ignored
+        Transaction("t2", "acc1", "cat1", 5000, "2025-01-02", "Salary"),  
         Transaction("t3", "acc1", "cat1", -200, "2025-01-03", "Restaurant"),
     )
     
     result = check_budget(budget, transactions)
-    assert result.is_right()  # Budget not exceeded because income is ignored
+    assert result.is_right() 
     validated_budget = result.get_or_else(None)
     assert validated_budget is not None
 
@@ -220,11 +220,11 @@ def test_check_budget_different_categories():
     budget = Budget("b1", "cat1", 1000, "month")
     transactions = (
         Transaction("t1", "acc1", "cat1", -300, "2025-01-01", "Food"),
-        Transaction("t2", "acc1", "cat2", -800, "2025-01-02", "Transport"),  # Different category
+        Transaction("t2", "acc1", "cat2", -800, "2025-01-02", "Transport"),  
         Transaction("t3", "acc1", "cat1", -200, "2025-01-03", "More Food"),
     )
     
     result = check_budget(budget, transactions)
-    assert result.is_right()  # Budget not exceeded because cat2 transaction is ignored
+    assert result.is_right()  
     validated_budget = result.get_or_else(None)
     assert validated_budget is not None

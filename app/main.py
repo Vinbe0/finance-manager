@@ -21,6 +21,14 @@ st.set_page_config(page_title="Finance Manager", layout="wide")
 
 accounts, categories, transactions, budgets = load_seed("data/seed.json")
 
+# Global sidebar nickname
+st.sidebar.markdown("### 👤 Профиль")
+nickname = st.sidebar.text_input("Никнейм", value=st.session_state.get("nickname", ""))
+st.session_state["nickname"] = nickname
+if nickname:
+    st.sidebar.caption(f"Привет, {nickname}!")
+
+
 def tx_to_df(tx_list):
     rows = []
     for t in tx_list:
@@ -161,80 +169,103 @@ elif menu == "⚙️ Functional Core":
     from core.domain import Transaction
     
     st.title("⚙️ Functional Core")
+    if nickname:
+        st.caption(f"Работает для пользователя: {nickname}")
     
     # Lab #4 - Functional Patterns Section
     st.subheader("🔧 Lab #4 - Functional Patterns (Maybe/Either)")
     
-    # Validation Pipeline Demo
-    st.write("**Pipeline валидации транзакции:**")
+    # Interactive Validation Pipeline Demo
+    st.write("**Pipeline валидации транзакции (интерактивно):**")
+    with st.form("validation_pipeline"):
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            acc_name = st.selectbox("Счёт", [a.name for a in accounts])
+            acc_id = next(a.id for a in accounts if a.name == acc_name)
+        with col2:
+            cat_name = st.selectbox("Категория", [c.name for c in categories])
+            cat_id = next(c.id for c in categories if c.name == cat_name)
+        with col3:
+            amount = st.number_input("Сумма (− расход, + доход)", value=-1000, step=100)
+        date = st.date_input("Дата транзакции")
+        note = st.text_input("Комментарий", value="Demo")
+        run_validation = st.form_submit_button("Проверить")
     
-    # Create a test transaction for validation
-    test_transaction = Transaction(
-        id="test_tx",
-        account_id=accounts[0].id,
-        cat_id=categories[0].id,
-        amount=-1000,
-        ts="2025-01-01",
-        note="Test transaction"
-    )
-    
-    # Step 1: Check if account exists
-    st.write("1. **Проверка существования счёта:**")
-    account_exists = any(acc.id == test_transaction.account_id for acc in accounts)
-    if account_exists:
-        st.success(f"✅ Счёт найден: {accounts[0].name}")
-    else:
-        st.error("❌ Счёт не найден")
-    
-    # Step 2: Check if category exists using safe_category
-    st.write("2. **Проверка существования категории:**")
-    category_result = safe_category(categories, test_transaction.cat_id)
-    if category_result.is_some():
-        category = category_result.get_or_else(None)
-        st.success(f"✅ Категория найдена: {category.name}")
-    else:
-        st.error("❌ Категория не найдена")
-    
-    # Step 3: Validate transaction using Either
-    st.write("3. **Валидация транзакции:**")
-    validation_result = validate_transaction(test_transaction, accounts, categories)
-    if validation_result.is_right():
-        st.success("✅ Транзакция валидна")
-    else:
-        error = validation_result.get_error()
-        st.error(f"❌ Ошибка валидации: {error['message']}")
-    
-    # Step 4: Check budget using Either
-    st.write("4. **Проверка бюджета:**")
-    if budgets:
-        budget_result = check_budget(budgets[0], transactions)
-        if budget_result.is_right():
-            st.success(f"✅ Бюджет не превышен для категории {budgets[0].cat_id}")
+    if run_validation:
+        test_transaction = Transaction(
+            id="test_tx",
+            account_id=acc_id,
+            cat_id=cat_id,
+            amount=int(amount),
+            ts=str(date),
+            note=note,
+        )
+        
+        st.write("1. **Проверка существования счёта:**")
+        account_exists = any(acc.id == test_transaction.account_id for acc in accounts)
+        if account_exists:
+            st.success(f"✅ Счёт найден: {acc_name}")
         else:
-            error = budget_result.get_error()
-            st.error(f"❌ Бюджет превышен: {error['message']}")
-            st.write(f"Лимит: {error['limit']:,} KZT")
-            st.write(f"Потрачено: {error['spent']:,} KZT")
-            st.write(f"Превышение: {error['over_budget']:,} KZT")
-    else:
-        st.info("Нет бюджетов для проверки")
+            st.error("❌ Счёт не найден")
+        
+        st.write("2. **Проверка существования категории:**")
+        category_result = safe_category(categories, test_transaction.cat_id)
+        if category_result.is_some():
+            category = category_result.get_or_else(None)
+            st.success(f"✅ Категория найдена: {category.name}")
+        else:
+            st.error("❌ Категория не найдена")
+        
+        st.write("3. **Валидация транзакции:**")
+        validation_result = validate_transaction(test_transaction, accounts, categories)
+        if validation_result.is_right():
+            st.success("✅ Транзакция валидна")
+        else:
+            error = validation_result.get_error()
+            st.error(f"❌ Ошибка валидации: {error['message']}")
+        
+        st.write("4. **Проверка бюджета:**")
+        if budgets:
+            b_names = [f"{b.id} ({b.cat_id})" for b in budgets]
+            b_choice = st.selectbox("Выберите бюджет для проверки", b_names, key="budget_choice")
+            b_idx = b_names.index(b_choice)
+            budget_result = check_budget(budgets[b_idx], transactions)
+            if budget_result.is_right():
+                st.success(f"✅ Бюджет не превышен для категории {budgets[b_idx].cat_id}")
+            else:
+                error = budget_result.get_error()
+                st.error(f"❌ Бюджет превышен: {error['message']}")
+                st.write(f"Лимит: {error['limit']:,} KZT")
+                st.write(f"Потрачено: {error['spent']:,} KZT")
+                st.write(f"Превышение: {error['over_budget']:,} KZT")
+        else:
+            st.info("Нет бюджетов для проверки")
     
     st.divider()
     
-    # Original Functional Core content
+    # Original Functional Core content with multiple user choices
     st.subheader("🔧 Лабы 1-3 - Функциональные трансформации")
-    food_id = categories[0].id
+    col_a, col_b, col_c = st.columns(3)
+    with col_a:
+        cat_name_fc = st.selectbox("Категория для фильтра", [c.name for c in categories], key="fc_cat")
+        food_id = next(c.id for c in categories if c.name == cat_name_fc)
+    with col_b:
+        start_date = st.text_input("Начало периода (YYYY-MM-DD)", value="2024-01-01")
+    with col_c:
+        end_date = st.text_input("Конец периода (YYYY-MM-DD)", value="2024-12-31")
+
     food_trans = list(filter(by_category(food_id), transactions))
-    st.write(f"Транзакций в категории {categories[0].name}: {len(food_trans)}")
-    date_trans = list(filter(by_date_range("2024-01-01", "2024-12-31"), transactions))
-    st.write(f"Транзакций за 2024 год: {len(date_trans)}")
+    st.write(f"Транзакций в категории {cat_name_fc}: {len(food_trans)}")
+    date_trans = list(filter(by_date_range(start_date, end_date), transactions))
+    st.write(f"Транзакций за период: {len(date_trans)}")
     amount_trans = list(filter(by_amount_range(-5000, -1000), transactions))
     st.write(f"Расходов от -5000 до -1000: {len(amount_trans)}")
     st.write(f"Доходных транзакций: {len(income_transactions(transactions))}")
     st.write(f"Расходных транзакций: {len(expense_transactions(transactions))}")
     st.write(f"Первые 5 сумм: {transaction_amounts(transactions)[:5]}")
-    acc = accounts[0]
-    st.write(f"Баланс первого аккаунта ({acc.name}): {account_balance(transactions, acc.id):,} KZT")
+    acc = st.selectbox("Аккаунт для баланса", [a.name for a in accounts], key="acc_balance")
+    acc_id = next(a.id for a in accounts if a.name == acc)
+    st.write(f"Баланс выбранного аккаунта ({acc}): {account_balance(transactions, acc_id):,} KZT")
 
 elif menu == "🔁 Pipelines":
     st.title("🔁 Pipelines & Recursion")
