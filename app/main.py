@@ -131,6 +131,12 @@ elif menu == "📂 Data":
         st.json([b.__dict__ for b in budgets])
 
 elif menu == "🧾 Transactions":
+    from core.events import event_bus, TRANSACTION_ADDED, BUDGET_ALERT, BALANCE_ALERT
+
+    # Initialize session state for alerts
+    if 'alerts' not in st.session_state:
+        st.session_state.alerts = []
+
     st.title("🧾 Ввод новой транзакции")
     with st.form("input_form", clear_on_submit=True):
         col1, col2 = st.columns(2)
@@ -151,8 +157,39 @@ elif menu == "🧾 Transactions":
                 "account": account,
                 "description": description,
             }
+            
+            # Publish transaction event
+            state = {
+                "budget_limit": 10000,  # Example budget limit
+                "balance_threshold": 1000,  # Example balance threshold
+                "balance": st.session_state.get("current_balance", 0)
+            }
+            
+            results = event_bus.publish(TRANSACTION_ADDED, new_row)
+            
+            # Update state based on event results
+            for result in results:
+                if "balance" in result:
+                    st.session_state.current_balance = result["balance"]
+                if "alert" in result:
+                    st.session_state.alerts.append(result["alert"])
+            
+            # Check balance and publish alert if needed
+            balance_results = event_bus.publish(BALANCE_ALERT, {"balance": st.session_state.current_balance})
+            for result in balance_results:
+                if "alert" in result:
+                    st.session_state.alerts.append(result["alert"])
+            
             st.session_state.manual_df = pd.concat([st.session_state.manual_df, pd.DataFrame([new_row])], ignore_index=True)
             st.success("✅ Транзакция добавлена!")
+
+    # Display Alerts
+    if st.session_state.alerts:
+        st.subheader("⚠️ Alerts")
+        for alert in st.session_state.alerts:
+            st.warning(alert)
+        if st.button("Clear Alerts"):
+            st.session_state.alerts = []
 
     if not st.session_state.manual_df.empty:
         st.subheader("📋 Введённые транзакции")
