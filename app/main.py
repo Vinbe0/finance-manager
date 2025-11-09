@@ -62,7 +62,7 @@ if "manual_df" not in st.session_state:
 
 menu = st.sidebar.radio(
     "Меню",
-    ["🏠 Overview", "📂 Data", "✏️ Input Data", "⚙️ Functional Core", "🔁 Pipelines", "📈 Reports"]
+    ["🏠 Overview", "📂 Data", "🧾 Transactions", "✅ Validation", "📊 Analytics"]
 )
 
 if menu == "🏠 Overview":
@@ -130,8 +130,8 @@ elif menu == "📂 Data":
     with st.expander("Budgets"):
         st.json([b.__dict__ for b in budgets])
 
-elif menu == "✏️ Input Data":
-    st.title("✏️ Ввод новой транзакции")
+elif menu == "🧾 Transactions":
+    st.title("🧾 Ввод новой транзакции")
     with st.form("input_form", clear_on_submit=True):
         col1, col2 = st.columns(2)
         with col1:
@@ -163,20 +163,16 @@ elif menu == "✏️ Input Data":
         csv = disp.to_csv(index=False)
         st.download_button("⬇ Скачать CSV", csv, file_name="manual_transactions.csv")
 
-elif menu == "⚙️ Functional Core":
+elif menu == "✅ Validation":
     from core.recursion import by_category, by_date_range, by_amount_range
     from core.functional import safe_category, validate_transaction, check_budget
     from core.domain import Transaction
     
-    st.title("⚙️ Functional Core")
+    st.title("✅ Validation & Budgets")
     if nickname:
         st.caption(f"Работает для пользователя: {nickname}")
     
-    # Lab #4 - Functional Patterns Section
-    st.subheader("🔧 Lab #4 - Functional Patterns (Maybe/Either)")
-    
-    # Interactive Validation Pipeline Demo
-    st.write("**Pipeline валидации транзакции (интерактивно):**")
+    st.write("**Проверка транзакции и бюджета**")
     with st.form("validation_pipeline"):
         col1, col2, col3 = st.columns(3)
         with col1:
@@ -243,8 +239,8 @@ elif menu == "⚙️ Functional Core":
     
     st.divider()
     
-    # Original Functional Core content with multiple user choices
-    st.subheader("🔧 Лабы 1-3 - Функциональные трансформации")
+    # Быстрые фильтры и статистика
+    st.subheader("Фильтры и статистика")
     col_a, col_b, col_c = st.columns(3)
     with col_a:
         cat_name_fc = st.selectbox("Категория для фильтра", [c.name for c in categories], key="fc_cat")
@@ -254,6 +250,7 @@ elif menu == "⚙️ Functional Core":
     with col_c:
         end_date = st.text_input("Конец периода (YYYY-MM-DD)", value="2024-12-31")
 
+    from core.recursion import by_category, by_date_range, by_amount_range
     food_trans = list(filter(by_category(food_id), transactions))
     st.write(f"Транзакций в категории {cat_name_fc}: {len(food_trans)}")
     date_trans = list(filter(by_date_range(start_date, end_date), transactions))
@@ -267,10 +264,15 @@ elif menu == "⚙️ Functional Core":
     acc_id = next(a.id for a in accounts if a.name == acc)
     st.write(f"Баланс выбранного аккаунта ({acc}): {account_balance(transactions, acc_id):,} KZT")
 
-elif menu == "🔁 Pipelines":
-    st.title("🔁 Pipelines & Recursion")
+elif menu == "📊 Analytics":
+    from core.lazy import iter_transactions, lazy_top_categories
+    
+    st.title("📊 Analytics")
+
+    # Категории и подкатегории
+    st.subheader("Структура категорий и расходы")
     cat_names = {c.name: c.id for c in categories}
-    selected_name = st.selectbox("Выберите категорию", list(cat_names.keys()))
+    selected_name = st.selectbox("Категория", list(cat_names.keys()))
     selected_id = cat_names[selected_name]
     subs = flatten_categories(categories, selected_id)
     total = sum_expenses_recursive(categories, transactions, selected_id)
@@ -279,16 +281,29 @@ elif menu == "🔁 Pipelines":
         st.write(f"- {c.name}")
     st.metric("Сумма расходов (с учётом подкатегорий)", f"{abs(total):,} KZT")
 
-elif menu == "📈 Reports":
-    st.title("📈 Reports — Forecast")
-    cat_names = {c.name: c.id for c in categories}
-    selected_name = st.selectbox("Выберите категорию", list(cat_names.keys()))
-    selected_id = cat_names[selected_name]
-    start = time.time()
-    result1 = forecast_expenses(selected_id, tuple(transactions), 6)
-    uncached_time = (time.time() - start) * 1000
-    start = time.time()
-    result2 = forecast_expenses(selected_id, tuple(transactions), 6)
-    cached_time = (time.time() - start) * 1000
-    st.metric("Прогноз расходов", f"{result2:,.0f} KZT")
+    st.divider()
+
+    # Прогноз расходов
+    st.subheader("Прогноз расходов по категории")
+    start_t = time.time()
+    _ = forecast_expenses(selected_id, tuple(transactions), 6)
+    uncached_time = (time.time() - start_t) * 1000
+    start_t = time.time()
+    forecast_value = forecast_expenses(selected_id, tuple(transactions), 6)
+    cached_time = (time.time() - start_t) * 1000
+    st.metric("Прогноз расходов", f"{forecast_value:,.0f} KZT")
     st.caption(f"⏱ Без кэша: {uncached_time:.3f} ms | С кэшем: {cached_time:.3f} ms")
+
+    st.divider()
+
+    # Ленивая обработка и топ-категории
+    st.subheader("Ленивая обработка и топ-категории по расходам")
+    k = st.number_input("Показать топ-K категорий:", min_value=1, max_value=20, value=5, key="top_k_analytics")
+    if st.button("Вычислить топ-категории", key="btn_top_k_analytics"):
+        expense_gen = iter_transactions(transactions, lambda t: t.amount < 0)
+        top_cats = list(lazy_top_categories(expense_gen, categories, k))
+        if top_cats:
+            st.success(f"Топ-{len(top_cats)} категорий по расходам")
+            st.table({"Категория": [n for n, _ in top_cats], "Сумма": [f"{v:,}" for _, v in top_cats]})
+        else:
+            st.info("Нет данных для анализа")
