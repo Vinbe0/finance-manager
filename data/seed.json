@@ -22,61 +22,61 @@
   "categories": [
     {
       "id": "cat1",
-      "name": "Питание",
+      "name": "Food",
       "parent_id": null,
       "type": "expense"
     },
     {
       "id": "cat2",
-      "name": "Продукты",
+      "name": "Groceries",
       "parent_id": "cat1",
       "type": "expense"
     },
     {
       "id": "cat3",
-      "name": "Кафе",
+      "name": "Restaurants",
       "parent_id": "cat1",
       "type": "expense"
     },
     {
       "id": "cat4",
-      "name": "Транспорт",
+      "name": "Transport",
       "parent_id": null,
       "type": "expense"
     },
     {
       "id": "cat5",
-      "name": "Автобус",
+      "name": "Bus",
       "parent_id": "cat4",
       "type": "expense"
     },
     {
       "id": "cat6",
-      "name": "Такси",
+      "name": "Taxi",
       "parent_id": "cat4",
       "type": "expense"
     },
     {
       "id": "cat7",
-      "name": "Досуг",
+      "name": "Entertainment",
       "parent_id": null,
       "type": "expense"
     },
     {
       "id": "cat8",
-      "name": "Кино",
+      "name": "Cinema",
       "parent_id": "cat7",
       "type": "expense"
     },
     {
       "id": "cat9",
-      "name": "Игры",
+      "name": "Games",
       "parent_id": "cat7",
       "type": "expense"
     },
     {
       "id": "cat10",
-      "name": "Доход",
+      "name": "Income",
       "parent_id": null,
       "type": "income"
     }
@@ -108,7 +108,7 @@
       "cat_id": "cat9",
       "amount": -1819,
       "ts": "2025-01-02",
-      "note": "Игры"
+      "note": "Games"
     },
     {
       "id": "t2",
@@ -116,7 +116,7 @@
       "cat_id": "cat9",
       "amount": -3440,
       "ts": "2025-01-03",
-      "note": "Игры"
+      "note": "Games"
     },
     {
       "id": "t3",
@@ -124,7 +124,7 @@
       "cat_id": "cat9",
       "amount": -2997,
       "ts": "2025-01-04",
-      "note": "Игры"
+      "note": "Games"
     },
     {
       "id": "t4",
@@ -132,7 +132,7 @@
       "cat_id": "cat8",
       "amount": -3456,
       "ts": "2025-01-05",
-      "note": "Кино"
+      "note": "Cinema"
     },
     {
       "id": "t5",
@@ -140,7 +140,7 @@
       "cat_id": "cat3",
       "amount": -3065,
       "ts": "2025-01-06",
-      "note": "Кафе"
+      "note": "Restaurant"
     },
     {
       "id": "t6",
@@ -148,7 +148,7 @@
       "cat_id": "cat3",
       "amount": -2276,
       "ts": "2025-01-07",
-      "note": "Кафе"
+      "note": "Restaurant"
     },
     {
       "id": "t7",
@@ -156,7 +156,7 @@
       "cat_id": "cat10",
       "amount": 22716,
       "ts": "2025-01-08",
-      "note": "Зарплата"
+      "note": "Salary"
     },
     {
       "id": "t8",
@@ -164,7 +164,7 @@
       "cat_id": "cat2",
       "amount": -4120,
       "ts": "2025-01-09",
-      "note": "Продукты"
+      "note": "Groceries"
     },
     {
       "id": "t9",
@@ -172,7 +172,7 @@
       "cat_id": "cat6",
       "amount": -543,
       "ts": "2025-01-10",
-      "note": "Такси"
+      "note": "Taxi"
     },
     {
       "id": "t10",
@@ -180,7 +180,7 @@
       "cat_id": "cat9",
       "amount": -812,
       "ts": "2025-01-11",
-      "note": "Игры"
+      "note": "Games"
     },
     {
       "id": "t11",
@@ -188,7 +188,7 @@
       "cat_id": "cat6",
       "amount": -3944,
       "ts": "2025-01-12",
-      "note": "Такси"
+      "note": "Taxi"
     },
     {
       "id": "t12",
@@ -196,7 +196,7 @@
       "cat_id": "cat2",
       "amount": -719,
       "ts": "2025-01-13",
-      "note": "Продукты"
+      "note": "Groceries"
     },
     {
       "id": "t13",

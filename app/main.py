@@ -3,6 +3,15 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import streamlit as st
+
+# Import the event system
+from core.events import (
+    event_bus,
+    TRANSACTION_ADDED,
+    BUDGET_ALERT,
+    BALANCE_ALERT,
+    register_default_handlers
+)
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
@@ -22,11 +31,11 @@ st.set_page_config(page_title="Finance Manager", layout="wide")
 accounts, categories, transactions, budgets = load_seed("data/seed.json")
 
 # Global sidebar nickname
-st.sidebar.markdown("### 👤 Профиль")
-nickname = st.sidebar.text_input("Никнейм", value=st.session_state.get("nickname", ""))
+st.sidebar.markdown("### 👤 Profile")
+nickname = st.sidebar.text_input("Nickname", value=st.session_state.get("nickname", ""))
 st.session_state["nickname"] = nickname
 if nickname:
-    st.sidebar.caption(f"Привет, {nickname}!")
+    st.sidebar.caption(f"Hello, {nickname}!")
 
 
 def tx_to_df(tx_list):
@@ -61,7 +70,7 @@ if "manual_df" not in st.session_state:
     st.session_state.manual_df = pd.DataFrame(columns=["date", "amount", "category", "account", "description"])
 
 menu = st.sidebar.radio(
-    "Меню",
+    "Menu",
     ["🏠 Overview", "📂 Data", "🧾 Transactions", "✅ Validation", "📊 Analytics"]
 )
 
@@ -83,7 +92,7 @@ if menu == "🏠 Overview":
         x=accounts_names,
         y=balances,
         labels={"x": "Account", "y": "Balance (KZT)"},
-        title="Баланс по аккаунтам",
+        title="Account Balances",
         template="plotly_dark"
     )
     st.plotly_chart(fig_bal, use_container_width=True)
@@ -112,23 +121,174 @@ if menu == "🏠 Overview":
         disp = df_top[["date", "amount", "category_id", "account_id"]].copy()
         disp["date"] = pd.to_datetime(disp["date"], errors="coerce").dt.strftime("%Y-%m-%d").fillna("-")
         disp["amount"] = disp["amount"].fillna(0).map(lambda x: f"{x:,.0f} KZT")
-        st.subheader("📊 Топ транзакций")
+        st.subheader("📊 Top Transactions")
         st.table(disp.reset_index(drop=True))
         csv = disp.to_csv(index=False)
-        st.download_button("⬇ Скачать CSV", csv, file_name="top_transactions.csv")
+        st.download_button("⬇ Download CSV", csv, file_name="top_transactions.csv")
     else:
-        st.info("Нет транзакций для отображения.")
+        st.info("No transactions to display.")
 
 elif menu == "📂 Data":
     st.title("📂 Data Overview")
-    with st.expander("Accounts"):
-        st.json([a.__dict__ for a in accounts])
-    with st.expander("Categories"):
-        st.json([c.__dict__ for c in categories])
-    with st.expander("Transactions (first 20)"):
-        st.json([t.__dict__ for t in transactions[:20]])
-    with st.expander("Budgets"):
-        st.json([b.__dict__ for b in budgets])
+    
+    # Accounts Section
+    st.header("💳 Accounts")
+    account_cols = st.columns(len(accounts))
+    for idx, (col, acc) in enumerate(zip(account_cols, accounts)):
+        with col:
+            st.metric(
+                acc.name,
+                f"{account_balance(transactions, acc.id):,.0f} KZT",
+                delta=None
+            )
+    
+    # Categories Section with Tree View
+    st.header("🗂 Categories")
+    cat_cols = st.columns([2, 3])
+    with cat_cols[0]:
+        selected_cat = st.selectbox(
+            "Select Category",
+            options=[c.name for c in categories],
+            index=0
+        )
+        selected_cat_id = next(c.id for c in categories if c.name == selected_cat)
+        subcats = flatten_categories(categories, selected_cat_id)
+        
+        if subcats:
+            st.markdown("**Subcategories:**")
+            for sub in subcats:
+                st.markdown(f"- {sub.name}")
+    
+    with cat_cols[1]:
+        # Show category spending distribution
+        cat_expenses = []
+        for cat in categories:
+            total = sum_expenses_recursive(categories, transactions, cat.id)
+            if total != 0:  # Only include categories with transactions
+                cat_expenses.append({"Category": cat.name, "Total": abs(total)})
+        
+        if cat_expenses:
+            df_cat = pd.DataFrame(cat_expenses)
+            fig_cat = px.pie(
+                df_cat,
+                values="Total",
+                names="Category",
+                title="Category Distribution"
+            )
+            fig_cat.update_layout(height=300)
+            st.plotly_chart(fig_cat, use_container_width=True)
+    
+    # Transactions Section
+    st.header("💸 Transactions")
+    
+    # Transaction filters
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        # Handle date range with proper NaT checking
+        dates = pd.to_datetime(df["date"])
+        valid_dates = dates[dates.notna()]
+        
+        if not valid_dates.empty:
+            min_date = valid_dates.min().date()
+            max_date = valid_dates.max().date()
+        else:
+            min_date = pd.Timestamp.today().date()
+            max_date = pd.Timestamp.today().date()
+            
+        date_range = st.date_input(
+            "Date Range",
+            value=(min_date, max_date),
+            key="tx_date_range"
+        )
+    with col2:
+        selected_account = st.multiselect(
+            "Account",
+            options=[a.name for a in accounts],
+            default=[]
+        )
+    with col3:
+        selected_category = st.multiselect(
+            "Category",
+            options=[c.name for c in categories],
+            default=[]
+        )
+    
+    # Filter transactions
+    filtered_df = df.copy()
+    if len(date_range) == 2:
+        # Convert date_range to datetime for proper comparison
+        start_date = pd.Timestamp(date_range[0])
+        end_date = pd.Timestamp(date_range[1])
+        
+        # Handle NaT values in date filtering
+        filtered_df = filtered_df[
+            filtered_df["date"].notna() &
+            (filtered_df["date"] >= start_date) &
+            (filtered_df["date"] <= end_date)
+        ]
+    if selected_account:
+        filtered_df = filtered_df[filtered_df["account_id"].isin(
+            [a.id for a in accounts if a.name in selected_account]
+        )]
+    if selected_category:
+        filtered_df = filtered_df[filtered_df["category_id"].isin(
+            [c.id for c in categories if c.name in selected_category]
+        )]
+    
+    # Display transactions
+    if not filtered_df.empty:
+        display_df = (
+            filtered_df[["date", "amount", "category_id", "account_id", "note"]]
+            .assign(
+                date=lambda x: x["date"].apply(lambda d: d.strftime("%Y-%m-%d") if pd.notna(d) else "N/A"),
+                amount=lambda x: x["amount"].map(lambda v: f"{v:,.0f} KZT" if pd.notna(v) else "N/A")
+            )
+            .rename(columns={
+                "category_id": "Category",
+                "account_id": "Account",
+                "note": "Note"
+            })
+        )
+        
+        # Download filtered data
+        csv = filtered_df.to_csv(index=False)
+        st.download_button(
+            "⬇️ Download Filtered Data",
+            csv,
+            file_name="transactions_filtered.csv",
+            mime="text/csv"
+        )
+    else:
+        st.info("No transactions match the selected filters")
+    
+    # Budgets Section
+    st.header("💰 Budgets")
+    if budgets:
+        budget_data = []
+        for budget in budgets:
+            cat_name = next((c.name for c in categories if c.id == budget.cat_id), "Unknown")
+            spent = sum(t.amount for t in transactions if t.cat_id == budget.cat_id and t.amount < 0)
+            remaining = budget.limit + spent  # spent is negative
+            progress = min(100, max(0, (abs(spent) / budget.limit) * 100))
+            
+            budget_data.append({
+                "Category": cat_name,
+                "Limit": budget.limit,
+                "Spent": abs(spent),
+                "Remaining": remaining,
+                "Progress": progress
+            })
+        
+        budget_df = pd.DataFrame(budget_data)
+        for _, row in budget_df.iterrows():
+            st.metric(
+                f"Budget: {row['Category']}",
+                f"{row['Spent']:,.0f} / {row['Limit']:,.0f} KZT",
+                f"{row['Remaining']:,.0f} KZT remaining"
+            )
+            st.progress(row['Progress'] / 100)
+    else:
+        st.info("No budgets defined")
 
 elif menu == "🧾 Transactions":
     from core.events import event_bus, TRANSACTION_ADDED, BUDGET_ALERT, BALANCE_ALERT
@@ -137,16 +297,16 @@ elif menu == "🧾 Transactions":
     if 'alerts' not in st.session_state:
         st.session_state.alerts = []
 
-    st.title("🧾 Ввод новой транзакции")
+    st.title("🧾 New Transaction")
     with st.form("input_form", clear_on_submit=True):
         col1, col2 = st.columns(2)
         with col1:
-            date = st.date_input("Дата")
-            amount = st.number_input("Сумма (KZT)", step=100.0, format="%.2f")
+            date = st.date_input("Date")
+            amount = st.number_input("Amount (KZT)", step=100.0, format="%.2f")
         with col2:
-            category = st.selectbox("Категория", [c.name for c in categories])
-            account = st.selectbox("Аккаунт", [a.name for a in accounts])
-        description = st.text_input("Описание (необязательно)")
+            category = st.selectbox("Category", [c.name for c in categories])
+            account = st.selectbox("Account", [a.name for a in accounts])
+        description = st.text_input("Description (optional)")
         submitted = st.form_submit_button("Добавить")
 
         if submitted:
@@ -192,13 +352,13 @@ elif menu == "🧾 Transactions":
             st.session_state.alerts = []
 
     if not st.session_state.manual_df.empty:
-        st.subheader("📋 Введённые транзакции")
+        st.subheader("📋 Entered Transactions")
         disp = st.session_state.manual_df.copy()
         disp["date"] = pd.to_datetime(disp["date"], errors="coerce").dt.strftime("%Y-%m-%d")
         disp["amount"] = disp["amount"].map(lambda x: f"{x:,.0f} KZT")
         st.table(disp)
         csv = disp.to_csv(index=False)
-        st.download_button("⬇ Скачать CSV", csv, file_name="manual_transactions.csv")
+        st.download_button("⬇ Download CSV", csv, file_name="manual_transactions.csv")
 
 elif menu == "✅ Validation":
     from core.recursion import by_category, by_date_range, by_amount_range
@@ -207,22 +367,22 @@ elif menu == "✅ Validation":
     
     st.title("✅ Validation & Budgets")
     if nickname:
-        st.caption(f"Работает для пользователя: {nickname}")
+        st.caption(f"Working for user: {nickname}")
     
-    st.write("**Проверка транзакции и бюджета**")
+    st.write("**Transaction and Budget Validation**")
     with st.form("validation_pipeline"):
         col1, col2, col3 = st.columns(3)
         with col1:
-            acc_name = st.selectbox("Счёт", [a.name for a in accounts])
+            acc_name = st.selectbox("Account", [a.name for a in accounts])
             acc_id = next(a.id for a in accounts if a.name == acc_name)
         with col2:
-            cat_name = st.selectbox("Категория", [c.name for c in categories])
+            cat_name = st.selectbox("Category", [c.name for c in categories])
             cat_id = next(c.id for c in categories if c.name == cat_name)
         with col3:
-            amount = st.number_input("Сумма (− расход, + доход)", value=-1000, step=100)
-        date = st.date_input("Дата транзакции")
-        note = st.text_input("Комментарий", value="Demo")
-        run_validation = st.form_submit_button("Проверить")
+            amount = st.number_input("Amount (− expense, + income)", value=-1000, step=100)
+        date = st.date_input("Transaction Date")
+        note = st.text_input("Note", value="Demo")
+        run_validation = st.form_submit_button("Validate")
     
     if run_validation:
         test_transaction = Transaction(
@@ -234,113 +394,113 @@ elif menu == "✅ Validation":
             note=note,
         )
         
-        st.write("1. **Проверка существования счёта:**")
+        st.write("1. **Account Existence Check:**")
         account_exists = any(acc.id == test_transaction.account_id for acc in accounts)
         if account_exists:
-            st.success(f"✅ Счёт найден: {acc_name}")
+            st.success(f"✅ Account found: {acc_name}")
         else:
-            st.error("❌ Счёт не найден")
+            st.error("❌ Account not found")
         
-        st.write("2. **Проверка существования категории:**")
+        st.write("2. **Category Existence Check:**")
         category_result = safe_category(categories, test_transaction.cat_id)
         if category_result.is_some():
             category = category_result.get_or_else(None)
-            st.success(f"✅ Категория найдена: {category.name}")
+            st.success(f"✅ Category found: {category.name}")
         else:
-            st.error("❌ Категория не найдена")
+            st.error("❌ Category not found")
         
-        st.write("3. **Валидация транзакции:**")
+        st.write("3. **Transaction Validation:**")
         validation_result = validate_transaction(test_transaction, accounts, categories)
         if validation_result.is_right():
-            st.success("✅ Транзакция валидна")
+            st.success("✅ Transaction is valid")
         else:
             error = validation_result.get_error()
-            st.error(f"❌ Ошибка валидации: {error['message']}")
+            st.error(f"❌ Validation error: {error['message']}")
         
-        st.write("4. **Проверка бюджета:**")
+        st.write("4. **Budget Check:**")
         if budgets:
             b_names = [f"{b.id} ({b.cat_id})" for b in budgets]
-            b_choice = st.selectbox("Выберите бюджет для проверки", b_names, key="budget_choice")
+            b_choice = st.selectbox("Select budget to check", b_names, key="budget_choice")
             b_idx = b_names.index(b_choice)
             budget_result = check_budget(budgets[b_idx], transactions)
             if budget_result.is_right():
-                st.success(f"✅ Бюджет не превышен для категории {budgets[b_idx].cat_id}")
+                st.success(f"✅ Budget not exceeded for category {budgets[b_idx].cat_id}")
             else:
                 error = budget_result.get_error()
-                st.error(f"❌ Бюджет превышен: {error['message']}")
-                st.write(f"Лимит: {error['limit']:,} KZT")
-                st.write(f"Потрачено: {error['spent']:,} KZT")
-                st.write(f"Превышение: {error['over_budget']:,} KZT")
+                st.error(f"❌ Budget exceeded: {error['message']}")
+                st.write(f"Limit: {error['limit']:,} KZT")
+                st.write(f"Spent: {error['spent']:,} KZT")
+                st.write(f"Over budget: {error['over_budget']:,} KZT")
         else:
-            st.info("Нет бюджетов для проверки")
+            st.info("No budgets to check")
     
     st.divider()
     
-    # Быстрые фильтры и статистика
-    st.subheader("Фильтры и статистика")
+    # Quick filters and statistics
+    st.subheader("Filters and Statistics")
     col_a, col_b, col_c = st.columns(3)
     with col_a:
-        cat_name_fc = st.selectbox("Категория для фильтра", [c.name for c in categories], key="fc_cat")
+        cat_name_fc = st.selectbox("Filter by Category", [c.name for c in categories], key="fc_cat")
         food_id = next(c.id for c in categories if c.name == cat_name_fc)
     with col_b:
-        start_date = st.text_input("Начало периода (YYYY-MM-DD)", value="2024-01-01")
+        start_date = st.text_input("Start Date (YYYY-MM-DD)", value="2024-01-01")
     with col_c:
-        end_date = st.text_input("Конец периода (YYYY-MM-DD)", value="2024-12-31")
+        end_date = st.text_input("End Date (YYYY-MM-DD)", value="2024-12-31")
 
     from core.recursion import by_category, by_date_range, by_amount_range
     food_trans = list(filter(by_category(food_id), transactions))
-    st.write(f"Транзакций в категории {cat_name_fc}: {len(food_trans)}")
+    st.write(f"Transactions in category {cat_name_fc}: {len(food_trans)}")
     date_trans = list(filter(by_date_range(start_date, end_date), transactions))
-    st.write(f"Транзакций за период: {len(date_trans)}")
+    st.write(f"Transactions in period: {len(date_trans)}")
     amount_trans = list(filter(by_amount_range(-5000, -1000), transactions))
-    st.write(f"Расходов от -5000 до -1000: {len(amount_trans)}")
-    st.write(f"Доходных транзакций: {len(income_transactions(transactions))}")
-    st.write(f"Расходных транзакций: {len(expense_transactions(transactions))}")
-    st.write(f"Первые 5 сумм: {transaction_amounts(transactions)[:5]}")
-    acc = st.selectbox("Аккаунт для баланса", [a.name for a in accounts], key="acc_balance")
+    st.write(f"Expenses between -5000 and -1000: {len(amount_trans)}")
+    st.write(f"Income transactions: {len(income_transactions(transactions))}")
+    st.write(f"Expense transactions: {len(expense_transactions(transactions))}")
+    st.write(f"First 5 amounts: {transaction_amounts(transactions)[:5]}")
+    acc = st.selectbox("Select account for balance", [a.name for a in accounts], key="acc_balance")
     acc_id = next(a.id for a in accounts if a.name == acc)
-    st.write(f"Баланс выбранного аккаунта ({acc}): {account_balance(transactions, acc_id):,} KZT")
+    st.write(f"Selected account balance ({acc}): {account_balance(transactions, acc_id):,} KZT")
 
 elif menu == "📊 Analytics":
     from core.lazy import iter_transactions, lazy_top_categories
     
     st.title("📊 Analytics")
 
-    # Категории и подкатегории
-    st.subheader("Структура категорий и расходы")
+    # Categories and Subcategories
+    st.subheader("Category Structure and Expenses")
     cat_names = {c.name: c.id for c in categories}
-    selected_name = st.selectbox("Категория", list(cat_names.keys()))
+    selected_name = st.selectbox("Category", list(cat_names.keys()))
     selected_id = cat_names[selected_name]
     subs = flatten_categories(categories, selected_id)
     total = sum_expenses_recursive(categories, transactions, selected_id)
-    st.write(f"Подкатегории категории {selected_name}:")
+    st.write(f"Subcategories of {selected_name}:")
     for c in subs:
         st.write(f"- {c.name}")
-    st.metric("Сумма расходов (с учётом подкатегорий)", f"{abs(total):,} KZT")
+    st.metric("Total Expenses (including subcategories)", f"{abs(total):,} KZT")
 
     st.divider()
 
-    # Прогноз расходов
-    st.subheader("Прогноз расходов по категории")
+    # Expense Forecast
+    st.subheader("Category Expense Forecast")
     start_t = time.time()
     _ = forecast_expenses(selected_id, tuple(transactions), 6)
     uncached_time = (time.time() - start_t) * 1000
     start_t = time.time()
     forecast_value = forecast_expenses(selected_id, tuple(transactions), 6)
     cached_time = (time.time() - start_t) * 1000
-    st.metric("Прогноз расходов", f"{forecast_value:,.0f} KZT")
-    st.caption(f"⏱ Без кэша: {uncached_time:.3f} ms | С кэшем: {cached_time:.3f} ms")
+    st.metric("Forecasted Expenses", f"{forecast_value:,.0f} KZT")
+    st.caption(f"⏱ Without cache: {uncached_time:.3f} ms | With cache: {cached_time:.3f} ms")
 
     st.divider()
 
-    # Ленивая обработка и топ-категории
-    st.subheader("Ленивая обработка и топ-категории по расходам")
-    k = st.number_input("Показать топ-K категорий:", min_value=1, max_value=20, value=5, key="top_k_analytics")
-    if st.button("Вычислить топ-категории", key="btn_top_k_analytics"):
+    # Lazy Processing and Top Categories
+    st.subheader("Lazy Processing and Top Expense Categories")
+    k = st.number_input("Show top-K categories:", min_value=1, max_value=20, value=5, key="top_k_analytics")
+    if st.button("Calculate Top Categories", key="btn_top_k_analytics"):
         expense_gen = iter_transactions(transactions, lambda t: t.amount < 0)
         top_cats = list(lazy_top_categories(expense_gen, categories, k))
         if top_cats:
-            st.success(f"Топ-{len(top_cats)} категорий по расходам")
-            st.table({"Категория": [n for n, _ in top_cats], "Сумма": [f"{v:,}" for _, v in top_cats]})
+            st.success(f"Top {len(top_cats)} Categories by Expenses")
+            st.table({"Category": [n for n, _ in top_cats], "Amount": [f"{v:,}" for _, v in top_cats]})
         else:
-            st.info("Нет данных для анализа")
+            st.info("No data to analyze")
