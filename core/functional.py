@@ -8,36 +8,29 @@ E = TypeVar('E')
 
 
 class Maybe(Generic[T], ABC):
-    """Functional Maybe container for handling optional values"""
     
     @abstractmethod
     def map(self, f: Callable[[T], U]) -> 'Maybe[U]':
-        """Apply function to contained value if present"""
         pass
     
     @abstractmethod
     def bind(self, f: Callable[[T], 'Maybe[U]']) -> 'Maybe[U]':
-        """Chain Maybe operations (flatMap)"""
         pass
     
     @abstractmethod
     def get_or_else(self, default: T) -> T:
-        """Get value or return default if empty"""
         pass
     
     @abstractmethod
     def is_some(self) -> bool:
-        """Check if Maybe contains a value"""
         pass
     
     @abstractmethod
     def is_none(self) -> bool:
-        """Check if Maybe is empty"""
         pass
 
 
 class Some(Generic[T], Maybe[T]):
-    """Maybe containing a value"""
     
     def __init__(self, value: T):
         self._value = value
@@ -65,7 +58,6 @@ class Some(Generic[T], Maybe[T]):
 
 
 class Nothing(Generic[T], Maybe[T]):
-    """Empty Maybe"""
     
     def map(self, f: Callable[[T], U]) -> 'Maybe[U]':
         return Nothing()
@@ -90,41 +82,33 @@ class Nothing(Generic[T], Maybe[T]):
 
 
 class Either(Generic[E, T], ABC):
-    """Functional Either container for handling errors or success values"""
     
     @abstractmethod
     def map(self, f: Callable[[T], U]) -> 'Either[E, U]':
-        """Apply function to contained value if success"""
         pass
     
     @abstractmethod
     def bind(self, f: Callable[[T], 'Either[E, U]']) -> 'Either[E, U]':
-        """Chain Either operations (flatMap)"""
         pass
     
     @abstractmethod
     def get_or_else(self, default: T) -> T:
-        """Get value or return default if error"""
         pass
     
     @abstractmethod
     def is_right(self) -> bool:
-        """Check if Either contains success value"""
         pass
     
     @abstractmethod
     def is_left(self) -> bool:
-        """Check if Either contains error"""
         pass
     
     @abstractmethod
     def get_error(self) -> E:
-        """Get error value (only valid if is_left() is True)"""
         pass
 
 
 class Right(Generic[E, T], Either[E, T]):
-    """Either containing a success value"""
     
     def __init__(self, value: T):
         self._value = value
@@ -155,7 +139,6 @@ class Right(Generic[E, T], Either[E, T]):
 
 
 class Left(Generic[E, T], Either[E, T]):
-    """Either containing an error"""
     
     def __init__(self, error: E):
         self._error = error
@@ -185,10 +168,9 @@ class Left(Generic[E, T], Either[E, T]):
         return isinstance(other, Left) and self._error == other._error
 
 
-# Lab #4 specific functions
+
 
 def safe_category(cats: tuple[Category, ...], cat_id: str) -> Maybe[Category]:
-    """Safely find a category by ID, returning Maybe[Category]"""
     for cat in cats:
         if cat.id == cat_id:
             return Some(cat)
@@ -200,8 +182,7 @@ def validate_transaction(
     accs: tuple[Account, ...], 
     cats: tuple[Category, ...]
 ) -> Either[dict, Transaction]:
-    """Validate a transaction, returning Either[dict, Transaction]"""
-    # Check if account exists
+    
     account_exists = any(acc.id == t.account_id for acc in accs)
     if not account_exists:
         return Left({
@@ -210,7 +191,6 @@ def validate_transaction(
             "account_id": t.account_id
         })
     
-    # Check if category exists
     category_exists = any(cat.id == t.cat_id for cat in cats)
     if not category_exists:
         return Left({
@@ -219,7 +199,6 @@ def validate_transaction(
             "category_id": t.cat_id
         })
     
-    # Check if category type matches transaction amount
     category = next(cat for cat in cats if cat.id == t.cat_id)
     if category.type == "income" and t.amount < 0:
         return Left({
@@ -243,14 +222,11 @@ def check_budget(
     b: Budget, 
     trans: tuple[Transaction, ...]
 ) -> Either[dict, Budget]:
-    """Check if budget is exceeded, returning Either[dict, Budget]"""
-    # Calculate total expenses for this category
     category_expenses = sum(
         abs(t.amount) for t in trans 
         if t.cat_id == b.cat_id and t.amount < 0
     )
     
-    # Check if budget is exceeded
     if category_expenses > b.limit:
         return Left({
             "error": "budget_exceeded",

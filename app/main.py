@@ -4,7 +4,6 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import streamlit as st
 
-# Import the event system
 from core.events import (
     event_bus,
     TRANSACTION_ADDED,
@@ -19,6 +18,8 @@ import plotly.express as px
 import time
 from core.recursion import flatten_categories, sum_expenses_recursive
 from core.transforms import load_seed, account_balance
+from core.domain import Transaction
+from uuid import uuid4
 from core.transforms import (
     income_transactions,
     expense_transactions,
@@ -30,7 +31,11 @@ st.set_page_config(page_title="Finance Manager", layout="wide")
 
 accounts, categories, transactions, budgets = load_seed("data/seed.json")
 
-# Global sidebar nickname
+# Keep a mutable copy of transactions in session so manual additions are
+# reflected across the app (balances, alerts, reports).
+if "tx_transactions" not in st.session_state:
+    st.session_state.tx_transactions = transactions
+
 st.sidebar.markdown("### 👤 Profile")
 nickname = st.sidebar.text_input("Nickname", value=st.session_state.get("nickname", ""))
 st.session_state["nickname"] = nickname
@@ -64,10 +69,25 @@ def tx_to_df(tx_list):
         df["date"] = pd.to_datetime(df["date"], errors="coerce")
     return df
 
-df = tx_to_df(transactions)
+df = tx_to_df(st.session_state.tx_transactions)
 
 if "manual_df" not in st.session_state:
     st.session_state.manual_df = pd.DataFrame(columns=["date", "amount", "category", "account", "description"])
+
+# Initialize per-account balances and thresholds in session so they can be
+# adjusted independently and used by balance alerts.
+if "tx_account_balances" not in st.session_state:
+    st.session_state.tx_account_balances = {
+        a.id: account_balance(st.session_state.tx_transactions, a.id) for a in accounts
+    }
+
+if "tx_account_thresholds" not in st.session_state:
+    # default threshold for each account (can be changed in UI)
+    st.session_state.tx_account_thresholds = {a.id: 1000 for a in accounts}
+
+if "tx_balance" not in st.session_state:
+    # total balance derived from per-account balances
+    st.session_state.tx_balance = sum(st.session_state.tx_account_balances.values())
 
 menu = st.sidebar.radio(
     "Menu",
@@ -75,7 +95,7 @@ menu = st.sidebar.radio(
 )
 
 if menu == "🏠 Overview":
-    total_balance = sum(account_balance(transactions, acc.id) for acc in accounts)
+    total_balance = sum(account_balance(st.session_state.tx_transactions, acc.id) for acc in accounts)
     k1, k2, k3, k4 = st.columns(4)
     with k1:
         st.metric("Accounts", len(accounts))
@@ -87,7 +107,7 @@ if menu == "🏠 Overview":
         st.metric("Total Balance", f"{total_balance:,.0f} KZT")
 
     accounts_names = [a.name for a in accounts]
-    balances = [account_balance(transactions, a.id) for a in accounts]
+    balances = [account_balance(st.session_state.tx_transactions, a.id) for a in accounts]
     fig_bal = px.bar(
         x=accounts_names,
         y=balances,
@@ -131,18 +151,16 @@ if menu == "🏠 Overview":
 elif menu == "📂 Data":
     st.title("📂 Data Overview")
     
-    # Accounts Section
     st.header("💳 Accounts")
     account_cols = st.columns(len(accounts))
     for idx, (col, acc) in enumerate(zip(account_cols, accounts)):
         with col:
-            st.metric(
-                acc.name,
-                f"{account_balance(transactions, acc.id):,.0f} KZT",
-                delta=None
-            )
+                st.metric(
+                    acc.name,
+                    f"{account_balance(st.session_state.tx_transactions, acc.id):,.0f} KZT",
+                    delta=None
+                )
     
-    # Categories Section with Tree View
     st.header("🗂 Categories")
     cat_cols = st.columns([2, 3])
     with cat_cols[0]:
@@ -160,11 +178,10 @@ elif menu == "📂 Data":
                 st.markdown(f"- {sub.name}")
     
     with cat_cols[1]:
-        # Show category spending distribution
         cat_expenses = []
         for cat in categories:
             total = sum_expenses_recursive(categories, transactions, cat.id)
-            if total != 0:  # Only include categories with transactions
+            if total != 0:
                 cat_expenses.append({"Category": cat.name, "Total": abs(total)})
         
         if cat_expenses:
@@ -178,13 +195,10 @@ elif menu == "📂 Data":
             fig_cat.update_layout(height=300)
             st.plotly_chart(fig_cat, use_container_width=True)
     
-    # Transactions Section
     st.header("💸 Transactions")
     
-    # Transaction filters
     col1, col2, col3 = st.columns(3)
     with col1:
-        # Handle date range with proper NaT checking
         dates = pd.to_datetime(df["date"])
         valid_dates = dates[dates.notna()]
         
@@ -213,14 +227,11 @@ elif menu == "📂 Data":
             default=[]
         )
     
-    # Filter transactions
     filtered_df = df.copy()
     if len(date_range) == 2:
-        # Convert date_range to datetime for proper comparison
         start_date = pd.Timestamp(date_range[0])
         end_date = pd.Timestamp(date_range[1])
         
-        # Handle NaT values in date filtering
         filtered_df = filtered_df[
             filtered_df["date"].notna() &
             (filtered_df["date"] >= start_date) &
@@ -235,7 +246,6 @@ elif menu == "📂 Data":
             [c.id for c in categories if c.name in selected_category]
         )]
     
-    # Display transactions
     if not filtered_df.empty:
         display_df = (
             filtered_df[["date", "amount", "category_id", "account_id", "note"]]
@@ -250,7 +260,6 @@ elif menu == "📂 Data":
             })
         )
         
-        # Download filtered data
         csv = filtered_df.to_csv(index=False)
         st.download_button(
             "⬇️ Download Filtered Data",
@@ -261,14 +270,13 @@ elif menu == "📂 Data":
     else:
         st.info("No transactions match the selected filters")
     
-    # Budgets Section
     st.header("💰 Budgets")
     if budgets:
         budget_data = []
         for budget in budgets:
             cat_name = next((c.name for c in categories if c.id == budget.cat_id), "Unknown")
             spent = sum(t.amount for t in transactions if t.cat_id == budget.cat_id and t.amount < 0)
-            remaining = budget.limit + spent  # spent is negative
+            remaining = budget.limit + spent
             progress = min(100, max(0, (abs(spent) / budget.limit) * 100))
             
             budget_data.append({
@@ -292,12 +300,98 @@ elif menu == "📂 Data":
 
 elif menu == "🧾 Transactions":
     from core.events import event_bus, TRANSACTION_ADDED, BUDGET_ALERT, BALANCE_ALERT
+    
+    if "tx_balance" not in st.session_state:
+        initial_balance_from_accounts = sum(acc.balance for acc in accounts)
+        initial_balance_from_transactions = sum(account_balance(st.session_state.tx_transactions, acc.id) for acc in accounts)
+        st.session_state.tx_balance = initial_balance_from_accounts if initial_balance_from_accounts > 0 else max(initial_balance_from_transactions, 5000)
+    if "tx_alerts" not in st.session_state:
+        st.session_state.tx_alerts = []
+    if "tx_event_history" not in st.session_state:
+        st.session_state.tx_event_history = []
+    if "tx_budget_spent" not in st.session_state:
+        st.session_state.tx_budget_spent = {}
+    
+    st.title("🧾 Transactions")
+    
+    col_settings, col_balances = st.columns([1, 3])
+    with col_settings:
+        st.subheader("⚙️ Alert Settings")
+        balance_threshold = st.number_input(
+            "Balance Alert Threshold (KZT)",
+            min_value=0,
+            value=1000,
+            step=100,
+            key="balance_alert_threshold",
+            help="Alert will trigger when balance falls below this amount"
+        )
+        
+        initial_balance_input = st.number_input(
+            "Set Initial Balance (KZT)",
+            min_value=0,
+            value=5000,
+            step=1000,
+            key="initial_balance_setting",
+            help="Set the starting balance for testing alerts"
+        )
+        
+        if st.button("🔧 Reset Balance", key="btn_reset_balance"):
+            st.session_state.tx_balance = initial_balance_input
+            st.session_state.tx_budget_spent = {}
+            st.rerun()
+        
+        st.caption(f"**Current Balance:** {st.session_state.tx_balance:,} KZT")
+        if st.session_state.tx_balance < balance_threshold:
+            st.warning(f"⚠️ Balance is below threshold of {balance_threshold:,} KZT!")
+        else:
+            expense_needed = st.session_state.tx_balance - balance_threshold + 1
+            st.caption(f"💡 Need **{expense_needed:,} KZT** in expenses to trigger balance alert")
+        st.markdown("---")
+        st.markdown("**Per-account balance thresholds**")
+        # allow setting thresholds per account
+        for a in accounts:
+            key = f"th_{a.id}"
+            st.session_state.tx_account_thresholds[a.id] = st.number_input(
+                f"{a.name} threshold",
+                min_value=0,
+                value=st.session_state.tx_account_thresholds.get(a.id, 1000),
+                step=100,
+                key=key
+            )
 
-    # Initialize session state for alerts
-    if 'alerts' not in st.session_state:
-        st.session_state.alerts = []
-
-    st.title("🧾 New Transaction")
+        # Button to recompute balances from session transactions (useful if
+        # transactions were added/modified externally or to force sync)
+        if st.button("🔄 Update Balances from Transactions", key="btn_update_balances"):
+            # recompute per-account balances from the authoritative tx list
+            recomputed = {a.id: 0 for a in accounts}
+            for t in st.session_state.tx_transactions:
+                # t can be dict-like or Transaction dataclass
+                tid = t.account_id if hasattr(t, "account_id") else t.get("account_id")
+                tamt = t.amount if hasattr(t, "amount") else t.get("amount", 0)
+                recomputed[tid] = recomputed.get(tid, 0) + int(tamt)
+            st.session_state.tx_account_balances = recomputed
+            st.session_state.tx_balance = sum(recomputed.values())
+            st.success("Per-account balances updated from transactions")
+    
+    with col_balances:
+        st.subheader("📊 Live Account Balances")
+        balance_cols = st.columns(len(accounts))
+        for idx, (col, acc) in enumerate(zip(balance_cols, accounts)):
+            with col:
+                acc_balance = st.session_state.tx_account_balances.get(acc.id, 0)
+                acc_thresh = st.session_state.tx_account_thresholds.get(acc.id, 0)
+                delta = None
+                if acc_balance < acc_thresh:
+                    delta = f"Below threshold ({acc_thresh:,.0f})"
+                st.metric(
+                    acc.name,
+                    f"{acc_balance:,.0f} KZT",
+                    delta=delta
+                )
+    
+    st.divider()
+    
+    st.subheader("➕ Add New Transaction")
     with st.form("input_form", clear_on_submit=True):
         col1, col2 = st.columns(2)
         with col1:
@@ -307,50 +401,249 @@ elif menu == "🧾 Transactions":
             category = st.selectbox("Category", [c.name for c in categories])
             account = st.selectbox("Account", [a.name for a in accounts])
         description = st.text_input("Description (optional)")
-        submitted = st.form_submit_button("Добавить")
+        submitted = st.form_submit_button("Add Transaction")
 
         if submitted:
+            acc_id = next(a.id for a in accounts if a.name == account)
+            cat_id = next(c.id for c in categories if c.name == category)
+            budget = next((b for b in budgets if b.cat_id == cat_id), None)
+            
+            # Build a row for manual display and a Transaction object for internal state
+            # Normalize amount sign based on category type (expenses should be negative)
+            cat_type = next((c.type for c in categories if c.id == cat_id), None)
+            signed_amount = int(amount)
+            if cat_type == "expense" and signed_amount > 0:
+                signed_amount = -abs(signed_amount)
+
             new_row = {
                 "date": pd.to_datetime(date),
-                "amount": amount,
+                "amount": signed_amount,
                 "category": category,
                 "account": account,
                 "description": description,
             }
+
+            new_tx = Transaction(
+                id=str(uuid4()),
+                account_id=acc_id,
+                cat_id=cat_id,
+                amount=signed_amount,
+                ts=pd.to_datetime(date).strftime("%Y-%m-%d"),
+                note=description or ""
+            )
             
-            # Publish transaction event
-            state = {
-                "budget_limit": 10000,  # Example budget limit
-                "balance_threshold": 1000,  # Example balance threshold
-                "balance": st.session_state.get("current_balance", 0)
+            budget_limit = budget.limit if budget else 10000
+            current_spent = st.session_state.tx_budget_spent.get(cat_id, 0)
+            
+            payload = {
+                "amount": signed_amount,
+                "account_id": acc_id,
+                "category_id": cat_id,
+                "cat_id": cat_id,
+                "budget_limit": budget_limit,
+                "current_spent": current_spent
             }
             
-            results = event_bus.publish(TRANSACTION_ADDED, new_row)
-            
-            # Update state based on event results
-            for result in results:
-                if "balance" in result:
-                    st.session_state.current_balance = result["balance"]
+            handlers_results = event_bus.publish(TRANSACTION_ADDED, payload)
+
+
+            # Append the new transaction to the session transactions so
+            # balances and other transforms reflect it immediately.
+            st.session_state.tx_transactions = tuple(list(st.session_state.tx_transactions) + [new_tx])
+
+            # Update per-account balance using the signed amount
+            st.session_state.tx_account_balances[acc_id] = st.session_state.tx_account_balances.get(acc_id, 0) + signed_amount
+
+            # Recompute total balance from per-account balances
+            st.session_state.tx_balance = sum(st.session_state.tx_account_balances.values())
+
+            alerts_triggered = []
+            for result in handlers_results:
+                if "balance_delta" in result:
+                    # legacy handler returned balance_delta, but we already applied
+                    # per-account update above; keep total consistent (no-op)
+                    pass
                 if "alert" in result:
-                    st.session_state.alerts.append(result["alert"])
-            
-            # Check balance and publish alert if needed
-            balance_results = event_bus.publish(BALANCE_ALERT, {"balance": st.session_state.current_balance})
-            for result in balance_results:
+                    alert_msg = result["alert"]
+                    st.session_state.tx_alerts.append({
+                        "type": "Budget",
+                        "message": alert_msg,
+                        "timestamp": pd.Timestamp.now().strftime("%H:%M:%S")
+                    })
+                    alerts_triggered.append(alert_msg)
+                if "spent" in result:
+                    st.session_state.tx_budget_spent[cat_id] = result["spent"]
+
+            # Publish per-account balance alert for the affected account
+            acc_balance = st.session_state.tx_account_balances.get(acc_id, 0)
+            acc_threshold = st.session_state.tx_account_thresholds.get(acc_id, 0)
+            acc_balance_payload = {"balance": acc_balance, "threshold": acc_threshold}
+            acc_balance_results = event_bus.publish(BALANCE_ALERT, acc_balance_payload)
+            for result in acc_balance_results:
                 if "alert" in result:
-                    st.session_state.alerts.append(result["alert"])
+                    alert_msg = result["alert"]
+                    st.session_state.tx_alerts.append({
+                        "type": "Balance",
+                        "message": alert_msg,
+                        "timestamp": pd.Timestamp.now().strftime("%H:%M:%S")
+                    })
+                    alerts_triggered.append(alert_msg)
+            
+            st.session_state.tx_event_history.append({
+                "event": TRANSACTION_ADDED,
+                "payload": {k: v for k, v in payload.items() if k != "current_spent"},
+                "timestamp": pd.Timestamp.now().strftime("%H:%M:%S")
+            })
             
             st.session_state.manual_df = pd.concat([st.session_state.manual_df, pd.DataFrame([new_row])], ignore_index=True)
-            st.success("✅ Транзакция добавлена!")
-
-    # Display Alerts
-    if st.session_state.alerts:
-        st.subheader("⚠️ Alerts")
-        for alert in st.session_state.alerts:
-            st.warning(alert)
-        if st.button("Clear Alerts"):
-            st.session_state.alerts = []
-
+            
+            if alerts_triggered:
+                st.success(f"✅ Transaction added! {len(alerts_triggered)} alert(s) triggered.")
+            else:
+                st.success("✅ Transaction added!")
+                
+            if st.session_state.tx_balance < balance_threshold:
+                st.warning(f"💰 Balance is now {st.session_state.tx_balance:,} KZT (below threshold of {balance_threshold:,} KZT)")
+            
+            st.rerun()
+    
+    st.divider()
+    
+    st.subheader("📋 Alert Limits Info & Debug")
+    
+    balance_status_col, budget_status_col = st.columns(2)
+    
+    with balance_status_col:
+        st.write("**💰 Balance Alert Status**")
+        if st.session_state.tx_balance < balance_threshold:
+            st.error(f"🔴 **ALERT ACTIVE!**\nBalance: {st.session_state.tx_balance:,} KZT\nThreshold: {balance_threshold:,} KZT")
+        else:
+            expense_needed = st.session_state.tx_balance - balance_threshold + 1
+            st.success(f"✅ Balance OK\nCurrent: {st.session_state.tx_balance:,} KZT\nThreshold: {balance_threshold:,} KZT\nNeed: **{expense_needed:,} KZT** more expenses")
+    
+    with budget_status_col:
+        st.write("**📊 Budget Alert Status**")
+        if budgets:
+            budget_status_lines = []
+            for budget in budgets[:3]:
+                cat_name = next((c.name for c in categories if c.id == budget.cat_id), budget.cat_id)
+                current_spent = st.session_state.tx_budget_spent.get(budget.cat_id, 0)
+                remaining = budget.limit - current_spent
+                if current_spent > budget.limit:
+                    budget_status_lines.append(f"🔴 {cat_name}: **EXCEEDED** ({current_spent:,} / {budget.limit:,} KZT)")
+                else:
+                    budget_status_lines.append(f"✅ {cat_name}: {current_spent:,} / {budget.limit:,} KZT (need {remaining + 1:,} more)")
+            st.info("\n".join(budget_status_lines) if budget_status_lines else "No spending tracked")
+        else:
+            st.info("No budgets defined")
+    
+    with st.expander("🧪 Test Alerts (Quick Testing)"):
+        st.write("Use these buttons to quickly test if alerts are working:")
+        test_col1, test_col2 = st.columns(2)
+        with test_col1:
+            test_balance_value = st.number_input(
+                "Test Balance Value",
+                value=500,
+                step=100,
+                key="test_balance_value",
+                help="Set balance to this value and trigger alert"
+            )
+            if st.button("🔔 Test Balance Alert", key="btn_test_balance"):
+                st.session_state.tx_balance = test_balance_value
+                balance_test_payload = {
+                    "balance": test_balance_value,
+                    "threshold": balance_threshold
+                }
+                test_results = event_bus.publish(BALANCE_ALERT, balance_test_payload)
+                for result in test_results:
+                    if "alert" in result:
+                        st.session_state.tx_alerts.append({
+                            "type": "Balance",
+                            "message": result["alert"],
+                            "timestamp": pd.Timestamp.now().strftime("%H:%M:%S")
+                        })
+                st.success(f"✅ Balance set to {test_balance_value} KZT and alert checked!")
+                st.rerun()
+        
+        with test_col2:
+            if budgets:
+                test_budget = budgets[0]
+                test_cat_name = next((c.name for c in categories if c.id == test_budget.cat_id), test_budget.cat_id)
+                st.write(f"**Test Budget Alert for:** {test_cat_name} (limit: {test_budget.limit:,} KZT)")
+                test_spent_amount = st.number_input(
+                    "Set Spent Amount",
+                    value=test_budget.limit + 1000,
+                    step=1000,
+                    key="test_spent_amount",
+                    help="Set spending to this amount to exceed budget"
+                )
+                if st.button("🔔 Test Budget Alert", key="btn_test_budget"):
+                    test_cat_id = test_budget.cat_id
+                    st.session_state.tx_budget_spent[test_cat_id] = test_spent_amount
+                    test_payload = {
+                        "amount": -100,
+                        "category_id": test_cat_id,
+                        "cat_id": test_cat_id,
+                        "budget_limit": test_budget.limit,
+                        "current_spent": test_spent_amount
+                    }
+                    test_results = event_bus.publish(TRANSACTION_ADDED, test_payload)
+                    for result in test_results:
+                        if "alert" in result:
+                            st.session_state.tx_alerts.append({
+                                "type": "Budget",
+                                "message": result["alert"],
+                                "timestamp": pd.Timestamp.now().strftime("%H:%M:%S")
+                            })
+                    st.success(f"✅ Budget spending set to {test_spent_amount:,} KZT and alert checked!")
+                    st.rerun()
+            else:
+                st.warning("No budgets defined for testing")
+    
+    st.divider()
+    
+    st.subheader("⚠️ Live Alerts & Warnings")
+    if st.session_state.tx_alerts:
+        for alert in reversed(st.session_state.tx_alerts[-10:]):
+            if alert["type"] == "Budget":
+                st.warning(f"🔴 [{alert['timestamp']}] {alert['message']}")
+            elif alert["type"] == "Balance":
+                st.error(f"🔴 [{alert['timestamp']}] {alert['message']}")
+        if st.button("Clear Alerts", key="btn_clear_tx_alerts"):
+            st.session_state.tx_alerts = []
+            st.rerun()
+    else:
+        st.info("No alerts at the moment")
+    
+    st.divider()
+    
+    st.subheader("💰 Updated Total Balance")
+    st.metric("Total Balance", f"{st.session_state.tx_balance:,.0f} KZT")
+    
+    if st.session_state.tx_budget_spent:
+        st.write("**Budget Spending by Category:**")
+        for cat_id, spent in st.session_state.tx_budget_spent.items():
+            cat_name = next((c.name for c in categories if c.id == cat_id), cat_id)
+            budget = next((b for b in budgets if b.cat_id == cat_id), None)
+            if budget:
+                st.write(f"- {cat_name}: {spent:,} / {budget.limit:,} KZT")
+                progress = min(100, (spent / budget.limit) * 100)
+                st.progress(progress / 100)
+    
+    st.divider()
+    
+    st.subheader("📜 Event History")
+    if st.session_state.tx_event_history:
+        event_df = pd.DataFrame(st.session_state.tx_event_history)
+        st.dataframe(event_df, use_container_width=True)
+        if st.button("Clear History", key="btn_clear_tx_history"):
+            st.session_state.tx_event_history = []
+            st.rerun()
+    else:
+        st.info("No events yet. Add a transaction to see event history.")
+    
+    st.divider()
+    
     if not st.session_state.manual_df.empty:
         st.subheader("📋 Entered Transactions")
         disp = st.session_state.manual_df.copy()
@@ -436,7 +729,6 @@ elif menu == "✅ Validation":
     
     st.divider()
     
-    # Quick filters and statistics
     st.subheader("Filters and Statistics")
     col_a, col_b, col_c = st.columns(3)
     with col_a:
@@ -459,14 +751,13 @@ elif menu == "✅ Validation":
     st.write(f"First 5 amounts: {transaction_amounts(transactions)[:5]}")
     acc = st.selectbox("Select account for balance", [a.name for a in accounts], key="acc_balance")
     acc_id = next(a.id for a in accounts if a.name == acc)
-    st.write(f"Selected account balance ({acc}): {account_balance(transactions, acc_id):,} KZT")
+    st.write(f"Selected account balance ({acc}): {account_balance(st.session_state.tx_transactions, acc_id):,} KZT")
 
 elif menu == "📊 Analytics":
     from core.lazy import iter_transactions, lazy_top_categories
     
     st.title("📊 Analytics")
 
-    # Categories and Subcategories
     st.subheader("Category Structure and Expenses")
     cat_names = {c.name: c.id for c in categories}
     selected_name = st.selectbox("Category", list(cat_names.keys()))
@@ -480,7 +771,6 @@ elif menu == "📊 Analytics":
 
     st.divider()
 
-    # Expense Forecast
     st.subheader("Category Expense Forecast")
     start_t = time.time()
     _ = forecast_expenses(selected_id, tuple(transactions), 6)
@@ -493,7 +783,6 @@ elif menu == "📊 Analytics":
 
     st.divider()
 
-    # Lazy Processing and Top Categories
     st.subheader("Lazy Processing and Top Expense Categories")
     k = st.number_input("Show top-K categories:", min_value=1, max_value=20, value=5, key="top_k_analytics")
     if st.button("Calculate Top Categories", key="btn_top_k_analytics"):

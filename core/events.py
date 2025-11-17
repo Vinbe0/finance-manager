@@ -1,7 +1,7 @@
 from typing import Callable, Dict, List, NamedTuple
 from datetime import datetime
+from core.domain import Transaction, Budget, Account
 
-# Make sure event_bus is exported
 __all__ = ['event_bus', 'TRANSACTION_ADDED', 'BUDGET_ALERT', 'BALANCE_ALERT', 'Event', 'EventBus']
 
 class Event(NamedTuple):
@@ -34,51 +34,55 @@ class EventBus:
             results.append(result)
         return results
 
-# Event types
+    def unsubscribe(self, name: str, handler: Callable[[Event, dict], dict]) -> None:
+        if name in self._subscribers:
+            if handler in self._subscribers[name]:
+                self._subscribers[name].remove(handler)
+
 TRANSACTION_ADDED = "TRANSACTION_ADDED"
 BUDGET_ALERT = "BUDGET_ALERT"
 BALANCE_ALERT = "BALANCE_ALERT"
 
-# Global event bus instance
 event_bus = EventBus()
 
-# Ensure the event bus is created at module level
-__event_bus = event_bus  # This ensures the event_bus is created when the module is imported
+def update_balance_handler(event: Event, payload: dict) -> dict:
+    amount = payload.get("amount", 0)
+    return {"balance_delta": amount}
 
-# Pure event handlers
-def update_balance(event: Event, state: dict) -> dict:
-    """Update account balance when a transaction is added"""
-    transaction = event.payload
-    current_balance = state.get("balance", 0)
-    new_balance = current_balance + transaction["amount"]
-    return {"balance": new_balance}
+def check_budget_handler(event: Event, payload: dict) -> dict:
+    amount = payload.get("amount", 0)
+    category_id = payload.get("category_id") or payload.get("cat_id", "")
+    budget_limit = payload.get("budget_limit", 0)
+    current_spent = payload.get("current_spent", 0)
+    
+    if amount < 0:
+        expense_amount = abs(amount)
+        new_spent = current_spent + expense_amount
+        if new_spent > budget_limit and budget_limit > 0:
+            return {
+                "alert": f"Budget exceeded for category {category_id}: {new_spent} / {budget_limit} KZT",
+                "category_id": category_id,
+                "spent": new_spent,
+                "limit": budget_limit
+            }
+        return {"spent": new_spent}
+    return {}
 
-def check_budget(event: Event, state: dict) -> dict:
-    """Check if transaction exceeds budget limits"""
-    transaction = event.payload
-    budget_limit = state.get("budget_limit", 1000)
-    if abs(transaction["amount"]) > budget_limit:
+def check_balance_handler(event: Event, payload: dict) -> dict:
+    balance = payload.get("balance", 0)
+    threshold = payload.get("threshold", 0)
+    
+    if balance < threshold and threshold > 0:
         return {
-            "alert": f"Budget alert: Transaction amount {transaction['amount']} exceeds limit {budget_limit}"
+            "alert": f"Balance alert: Current balance {balance} KZT is below threshold {threshold} KZT",
+            "balance": balance,
+            "threshold": threshold
         }
     return {}
 
-def check_balance(event: Event, state: dict) -> dict:
-    """Check if balance is below threshold"""
-    balance = event.payload.get("balance", 0)
-    threshold = state.get("balance_threshold", 100)
-    if balance < threshold:
-        return {
-            "alert": f"Balance alert: Current balance {balance} is below threshold {threshold}"
-        }
-    return {}
-
-# Function to register default handlers
 def register_default_handlers():
-    """Register all default event handlers"""
-    event_bus.subscribe(TRANSACTION_ADDED, update_balance)
-    event_bus.subscribe(TRANSACTION_ADDED, check_budget)
-    event_bus.subscribe(BALANCE_ALERT, check_balance)
+    event_bus.subscribe(TRANSACTION_ADDED, update_balance_handler)
+    event_bus.subscribe(TRANSACTION_ADDED, check_budget_handler)
+    event_bus.subscribe(BALANCE_ALERT, check_balance_handler)
 
-# Register handlers when module is imported
 register_default_handlers()

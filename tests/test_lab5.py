@@ -40,16 +40,16 @@ def test_iter_transactions_is_lazy_stop_early():
     first_two = list(islice(gen, 2))
 
     assert len(first_two) == 2
-    assert calls["n"] < len(trans)  # predicate not called for all items
+    assert calls["n"] < len(trans)
 
 
 def test_lazy_top_categories_basic_sum_and_order():
     cats, trans = make_sample()
     result = list(lazy_top_categories(trans, cats, k=2))
     assert result[0][0] == "Food"
-    assert result[0][1] == 1000  # 300 + 700
+    assert result[0][1] == 1000
     assert result[1][0] == "Transport"
-    assert result[1][1] == 300  # 200 + 100
+    assert result[1][1] == 300
 
 
 def test_lazy_top_categories_ignores_income_and_maps_names():

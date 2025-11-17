@@ -21,9 +21,6 @@ def forecast_expenses(cat_id: str, trans: tuple[Transaction, ...], period: int) 
     return sum(values) // len(values)
 
 
-
-
-
 def by_category(cat_id: str):
     def _filter(t: Transaction) -> bool:
         return t.cat_id == cat_id
