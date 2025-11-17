@@ -238,3 +238,33 @@ def check_budget(
         })
     
     return Right(b)
+
+
+# --- Functional utilities for composition / pipelines (Lab 7)
+from typing import Iterable, Any
+
+
+def compose(*funcs):
+    """Return a function that's the composition of the given functions.
+
+    compose(f, g, h)(x) == f(g(h(x)))
+    Works left-to-right in the argument order provided.
+    """
+    def _composed(x):
+        res = x
+        for f in reversed(funcs):
+            res = f(res)
+        return res
+    return _composed
+
+
+def pipe(x, *funcs):
+    """Pipe a value through a series of functions.
+
+    pipe(x, f, g, h) == h(g(f(x)))
+    Returns the final result.
+    """
+    res = x
+    for f in funcs:
+        res = f(res)
+    return res
