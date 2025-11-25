@@ -3,6 +3,7 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import streamlit as st
+import asyncio
 
 from core.events import (
     event_bus,
@@ -88,7 +89,7 @@ if "tx_balance" not in st.session_state:
 
 menu = st.sidebar.radio(
     "Menu",
-    ["🏠 Overview", "📂 Data", "🧾 Transactions", "✅ Validation", "📑 Reports", "📊 Analytics"]
+    ["🏠 Overview", "📂 Data", "🧾 Transactions", "✅ Validation", "⚡ Async/FRP · Reports", "📑 Reports", "📊 Analytics"]
 )
 
 if menu == "🏠 Overview":
@@ -519,60 +520,57 @@ elif menu == "🧾 Transactions":
             st.info("\n".join(budget_status_lines) if budget_status_lines else "No spending tracked")
         else:
             st.info("No budgets defined")
-    
-    
-    st.divider()
-    
-    st.subheader("⚠️ Live Alerts & Warnings")
-    if st.session_state.tx_alerts:
-        for alert in reversed(st.session_state.tx_alerts[-10:]):
-            if alert["type"] == "Budget":
-                st.warning(f"🔴 [{alert['timestamp']}] {alert['message']}")
-            elif alert["type"] == "Balance":
-                st.error(f"🔴 [{alert['timestamp']}] {alert['message']}")
-        if st.button("Clear Alerts", key="btn_clear_tx_alerts"):
-            st.session_state.tx_alerts = []
-            st.rerun()
-    else:
-        st.info("No alerts at the moment")
-    
-    st.divider()
-    
-    st.subheader("💰 Updated Total Balance")
-    st.metric("Total Balance", f"{st.session_state.tx_balance:,.0f} KZT")
-    
-    if st.session_state.tx_budget_spent:
-        st.write("**Budget Spending by Category:**")
-        for cat_id, spent in st.session_state.tx_budget_spent.items():
-            cat_name = next((c.name for c in categories if c.id == cat_id), cat_id)
-            budget = next((b for b in budgets if b.cat_id == cat_id), None)
-            if budget:
-                st.write(f"- {cat_name}: {spent:,} / {budget.limit:,} KZT")
-                progress = min(100, (spent / budget.limit) * 100)
-                st.progress(progress / 100)
-    
-    st.divider()
-    
-    st.subheader("📜 Event History")
-    if st.session_state.tx_event_history:
-        event_df = pd.DataFrame(st.session_state.tx_event_history)
-        st.dataframe(event_df, use_container_width=True)
-        if st.button("Clear History", key="btn_clear_tx_history"):
-            st.session_state.tx_event_history = []
-            st.rerun()
-    else:
-        st.info("No events yet. Add a transaction to see event history.")
-    
-    st.divider()
-    
-    if not st.session_state.manual_df.empty:
-        st.subheader("📋 Entered Transactions")
-        disp = st.session_state.manual_df.copy()
-        disp["date"] = pd.to_datetime(disp["date"], errors="coerce").dt.strftime("%Y-%m-%d")
-        disp["amount"] = disp["amount"].map(lambda x: f"{x:,.0f} KZT")
-        st.table(disp)
-        csv = disp.to_csv(index=False)
-        st.download_button("⬇ Download CSV", csv, file_name="manual_transactions.csv")
+
+elif menu == "Async/FRP · Reports" or menu == "⚡ Async/FRP · Reports":
+    st.title("⚡ Async / FRP Reports")
+    st.markdown("Выполнение асинхронных агрегатов и быстрый отчёт")
+
+    st.caption("Нажмите кнопку, чтобы запустить асинхронные агрегаты (expenses_by_month и balance_forecast)")
+
+    months = pd.date_range(end=pd.Timestamp.today().normalize(), periods=6, freq="M").strftime("%Y-%m").tolist()
+    sel_months = st.multiselect("Months to aggregate", options=months, default=months[:3])
+
+    run = st.button("▶️ Run Reports (async)", key="btn_run_reports_simple")
+
+    if run:
+        st.info("Running reports...")
+        from concurrent.futures import ThreadPoolExecutor
+
+        # take a safe snapshot of transactions to pass to the background worker
+        tx_snapshot = list(st.session_state.get("tx_transactions", []))
+
+        def worker(selected_months, txs):
+            # run asyncio coroutines in a background thread to avoid blocking Streamlit
+            # Create and set a dedicated event loop for this thread to avoid "no current event loop" errors
+            import asyncio as _asyncio
+
+            loop = _asyncio.new_event_loop()
+            try:
+                _asyncio.set_event_loop(loop)
+                from core.async_reports import expenses_by_month, balance_forecast
+
+                coro = _asyncio.gather(
+                    expenses_by_month(txs, selected_months),
+                    balance_forecast(accounts, txs),
+                )
+                return loop.run_until_complete(coro)
+            finally:
+                try:
+                    loop.close()
+                except Exception:
+                    pass
+
+        with ThreadPoolExecutor(max_workers=1) as ex:
+            fut = ex.submit(worker, sel_months, tx_snapshot)
+            try:
+                exp_res, bal_res = fut.result(timeout=10)
+                st.success("Reports finished")
+                st.write("Expenses by month:")
+                st.table(pd.DataFrame([{"month": k, "expense": v} for k, v in exp_res.items()]))
+                st.write("Forecast balances:")
+                st.table(pd.DataFrame([{"account_id": k, "forecast": v} for k, v in bal_res.items()]))
+            except Exception as e:
+                st.error(f"Failed to run reports: {e}")
 
 elif menu == "✅ Validation":
     from core.recursion import by_category, by_date_range, by_amount_range
