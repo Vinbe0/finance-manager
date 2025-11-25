@@ -29,8 +29,20 @@ from core.transforms import (
 from core.memo import forecast_expenses
 from core.services import BudgetService, ReportService
 
-st.set_page_config(page_title="Finance Manager", layout="wide")
+st.set_page_config(page_title="Finance Manager", layout="wide", initial_sidebar_state="expanded")
 
+with open("app/style.css") as f:
+    st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+
+st.markdown("""
+<div style="display: flex; align-items: center; margin-bottom: 20px;">
+    <img src="https://emojicdn.elk.sh/💰" width="60" height="60" style="margin-right: 20px;">
+    <div>
+        <h1 style="margin: 0;">Finance Manager</h1>
+        <p style="margin: 0; color: #aaa;">Your personal finance dashboard</p>
+    </div>
+</div>
+""", unsafe_allow_html=True)
 accounts, categories, transactions, budgets = load_seed("data/seed.json")
 
 
@@ -93,54 +105,70 @@ menu = st.sidebar.radio(
 )
 
 if menu == "🏠 Overview":
+    st.header("Dashboard")
     total_balance = sum(account_balance(st.session_state.tx_transactions, acc.id) for acc in accounts)
-    k1, k2, k3, k4 = st.columns(4)
-    with k1:
+
+    # Key Metrics in styled columns
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
         st.metric("Accounts", len(accounts))
-    with k2:
+    with col2:
         st.metric("Categories", len(categories))
-    with k3:
-        st.metric("Transactions", len(transactions))
-    with k4:
+    with col3:
+        st.metric("Transactions", len(st.session_state.tx_transactions))
+    with col4:
         st.metric("Total Balance", f"{total_balance:,.0f} KZT")
 
-    accounts_names = [a.name for a in accounts]
-    balances = [account_balance(st.session_state.tx_transactions, a.id) for a in accounts]
-    fig_bal = px.bar(
-        x=accounts_names,
-        y=balances,
-        labels={"x": "Account", "y": "Balance (KZT)"},
-        title="Account Balances",
-        template="plotly_dark"
-    )
-    st.plotly_chart(fig_bal, use_container_width=True)
+    st.markdown("---")
 
-    end = pd.Timestamp.today().normalize()
-    months = pd.date_range(end=end, periods=12, freq="M")
+    # Charts in columns
+    chart_col1, chart_col2 = st.columns(2)
 
-    if "date" in df.columns:
-        df["date"] = pd.to_datetime(df["date"], errors="coerce")
+    with chart_col1:
+        st.subheader("Account Balances")
+        accounts_names = [a.name for a in accounts]
+        balances = [account_balance(st.session_state.tx_transactions, a.id) for a in accounts]
+        fig_bal = px.bar(
+            x=accounts_names,
+            y=balances,
+            labels={"x": "Account", "y": "Balance (KZT)"},
+            template="plotly_dark",
+            color=balances,
+            color_continuous_scale=px.colors.sequential.Teal
+        )
+        st.plotly_chart(fig_bal, use_container_width=True)
 
-    if not df.empty and df["date"].notna().any():
-        inc_m = df[df["amount"] > 0].set_index("date").resample("M")["amount"].sum().reindex(months, fill_value=0)
-        exp_m = (-df[df["amount"] < 0].set_index("date").resample("M")["amount"].sum()).reindex(months, fill_value=0)
-    else:
-        inc_m = pd.Series(np.zeros(len(months)), index=months)
-        exp_m = pd.Series(np.zeros(len(months)), index=months)
+    with chart_col2:
+        st.subheader("Income vs Expense")
+        end = pd.Timestamp.today().normalize()
+        months = pd.date_range(end=end, periods=12, freq="M")
 
-    fig_ts = go.Figure()
-    fig_ts.add_trace(go.Scatter(x=[m.strftime("%b %y") for m in months], y=inc_m.values, mode="lines+markers", name="Income"))
-    fig_ts.add_trace(go.Scatter(x=[m.strftime("%b %y") for m in months], y=exp_m.values, mode="lines+markers", name="Expense"))
-    fig_ts.update_layout(template="plotly_dark", margin=dict(t=30, b=10, l=10, r=10))
-    st.plotly_chart(fig_ts, use_container_width=True)
+        if "date" in df.columns:
+            df["date"] = pd.to_datetime(df["date"], errors="coerce")
 
+        if not df.empty and df["date"].notna().any():
+            inc_m = df[df["amount"] > 0].set_index("date").resample("M")["amount"].sum().reindex(months, fill_value=0)
+            exp_m = (-df[df["amount"] < 0].set_index("date").resample("M")["amount"].sum()).reindex(months, fill_value=0)
+        else:
+            inc_m = pd.Series(np.zeros(len(months)), index=months)
+            exp_m = pd.Series(np.zeros(len(months)), index=months)
+
+        fig_ts = go.Figure()
+        fig_ts.add_trace(go.Scatter(x=[m.strftime("%b %y") for m in months], y=inc_m.values, mode="lines+markers", name="Income", line=dict(color="green")))
+        fig_ts.add_trace(go.Scatter(x=[m.strftime("%b %y") for m in months], y=exp_m.values, mode="lines+markers", name="Expense", line=dict(color="red")))
+        fig_ts.update_layout(template="plotly_dark", margin=dict(t=30, b=10, l=10, r=10))
+        st.plotly_chart(fig_ts, use_container_width=True)
+
+    st.markdown("---")
+
+    # Top Transactions
     if not df.empty:
+        st.subheader("📊 Top Transactions")
         df_top = df.assign(abs_amount=df["amount"].abs()).sort_values("abs_amount", ascending=False).head(8)
         disp = df_top[["date", "amount", "category_id", "account_id"]].copy()
         disp["date"] = pd.to_datetime(disp["date"], errors="coerce").dt.strftime("%Y-%m-%d").fillna("-")
         disp["amount"] = disp["amount"].fillna(0).map(lambda x: f"{x:,.0f} KZT")
-        st.subheader("📊 Top Transactions")
-        st.table(disp.reset_index(drop=True))
+        st.dataframe(disp.reset_index(drop=True), use_container_width=True)
         csv = disp.to_csv(index=False)
         st.download_button("⬇ Download CSV", csv, file_name="top_transactions.csv")
     else:
@@ -148,153 +176,144 @@ if menu == "🏠 Overview":
 
 elif menu == "📂 Data":
     st.title("📂 Data Overview")
-    
-    st.header("💳 Accounts")
-    account_cols = st.columns(len(accounts))
-    for idx, (col, acc) in enumerate(zip(account_cols, accounts)):
-        with col:
+
+    with st.expander("💳 Accounts", expanded=True):
+        account_cols = st.columns(len(accounts))
+        for idx, (col, acc) in enumerate(zip(account_cols, accounts)):
+            with col:
                 st.metric(
                     acc.name,
                     f"{account_balance(st.session_state.tx_transactions, acc.id):,.0f} KZT",
                     delta=None
                 )
-    
-    st.header("🗂 Categories")
-    cat_cols = st.columns([2, 3])
-    with cat_cols[0]:
-        selected_cat = st.selectbox(
-            "Select Category",
-            options=[c.name for c in categories],
-            index=0
-        )
-        selected_cat_id = next(c.id for c in categories if c.name == selected_cat)
-        subcats = flatten_categories(categories, selected_cat_id)
-        
-        if subcats:
-            st.markdown("**Subcategories:**")
-            for sub in subcats:
-                st.markdown(f"- {sub.name}")
-    
-    with cat_cols[1]:
-        cat_expenses = []
-        for cat in categories:
-            total = sum_expenses_recursive(categories, transactions, cat.id)
-            if total != 0:
-                cat_expenses.append({"Category": cat.name, "Total": abs(total)})
-        
-        if cat_expenses:
-            df_cat = pd.DataFrame(cat_expenses)
-            fig_cat = px.pie(
-                df_cat,
-                values="Total",
-                names="Category",
-                title="Category Distribution"
+
+    with st.expander("🗂 Categories", expanded=True):
+        cat_cols = st.columns([2, 3])
+        with cat_cols[0]:
+            selected_cat = st.selectbox(
+                "Select Category",
+                options=[c.name for c in categories],
+                index=0
             )
-            fig_cat.update_layout(height=300)
-            st.plotly_chart(fig_cat, use_container_width=True)
-    
-    st.header("💸 Transactions")
-    
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        dates = pd.to_datetime(df["date"])
-        valid_dates = dates[dates.notna()]
-        
-        if not valid_dates.empty:
-            min_date = valid_dates.min().date()
-            max_date = valid_dates.max().date()
+            selected_cat_id = next(c.id for c in categories if c.name == selected_cat)
+            subcats = flatten_categories(categories, selected_cat_id)
+            if subcats:
+                st.markdown("**Subcategories:**")
+                for sub in subcats:
+                    st.markdown(f"- {sub.name}")
+        with cat_cols[1]:
+            cat_expenses = []
+            for cat in categories:
+                total = sum_expenses_recursive(categories, transactions, cat.id)
+                if total != 0:
+                    cat_expenses.append({"Category": cat.name, "Total": abs(total)})
+            if cat_expenses:
+                df_cat = pd.DataFrame(cat_expenses)
+                fig_cat = px.pie(
+                    df_cat,
+                    values="Total",
+                    names="Category",
+                    title="Category Distribution"
+                )
+                fig_cat.update_layout(height=300)
+                st.plotly_chart(fig_cat, use_container_width=True)
+
+    with st.expander("💸 Transactions", expanded=True):
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            dates = pd.to_datetime(df["date"])
+            valid_dates = dates[dates.notna()]
+            if not valid_dates.empty:
+                min_date = valid_dates.min().date()
+                max_date = valid_dates.max().date()
+            else:
+                min_date = pd.Timestamp.today().date()
+                max_date = pd.Timestamp.today().date()
+            date_range = st.date_input(
+                "Date Range",
+                value=(min_date, max_date),
+                key="tx_date_range"
+            )
+        with col2:
+            selected_account = st.multiselect(
+                "Account",
+                options=[a.name for a in accounts],
+                default=[]
+            )
+        with col3:
+            selected_category = st.multiselect(
+                "Category",
+                options=[c.name for c in categories],
+                default=[]
+            )
+
+        filtered_df = df.copy()
+        if len(date_range) == 2:
+            start_date = pd.Timestamp(date_range[0])
+            end_date = pd.Timestamp(date_range[1])
+            filtered_df = filtered_df[
+                filtered_df["date"].notna() &
+                (filtered_df["date"] >= start_date) &
+                (filtered_df["date"] <= end_date)
+            ]
+        if selected_account:
+            filtered_df = filtered_df[filtered_df["account_id"].isin(
+                [a.id for a in accounts if a.name in selected_account]
+            )]
+        if selected_category:
+            filtered_df = filtered_df[filtered_df["category_id"].isin(
+                [c.id for c in categories if c.name in selected_category]
+            )]
+
+        if not filtered_df.empty:
+            display_df = (
+                filtered_df[["date", "amount", "category_id", "account_id", "note"]]
+                .assign(
+                    date=lambda x: x["date"].apply(lambda d: d.strftime("%Y-%m-%d") if pd.notna(d) else "N/A"),
+                    amount=lambda x: x["amount"].map(lambda v: f"{v:,.0f} KZT" if pd.notna(v) else "N/A")
+                )
+                .rename(columns={
+                    "category_id": "Category",
+                    "account_id": "Account",
+                    "note": "Note"
+                })
+            )
+            st.dataframe(display_df)
+            csv = filtered_df.to_csv(index=False)
+            st.download_button(
+                "⬇️ Download Filtered Data",
+                csv,
+                file_name="transactions_filtered.csv",
+                mime="text/csv"
+            )
         else:
-            min_date = pd.Timestamp.today().date()
-            max_date = pd.Timestamp.today().date()
-            
-        date_range = st.date_input(
-            "Date Range",
-            value=(min_date, max_date),
-            key="tx_date_range"
-        )
-    with col2:
-        selected_account = st.multiselect(
-            "Account",
-            options=[a.name for a in accounts],
-            default=[]
-        )
-    with col3:
-        selected_category = st.multiselect(
-            "Category",
-            options=[c.name for c in categories],
-            default=[]
-        )
-    
-    filtered_df = df.copy()
-    if len(date_range) == 2:
-        start_date = pd.Timestamp(date_range[0])
-        end_date = pd.Timestamp(date_range[1])
-        
-        filtered_df = filtered_df[
-            filtered_df["date"].notna() &
-            (filtered_df["date"] >= start_date) &
-            (filtered_df["date"] <= end_date)
-        ]
-    if selected_account:
-        filtered_df = filtered_df[filtered_df["account_id"].isin(
-            [a.id for a in accounts if a.name in selected_account]
-        )]
-    if selected_category:
-        filtered_df = filtered_df[filtered_df["category_id"].isin(
-            [c.id for c in categories if c.name in selected_category]
-        )]
-    
-    if not filtered_df.empty:
-        display_df = (
-            filtered_df[["date", "amount", "category_id", "account_id", "note"]]
-            .assign(
-                date=lambda x: x["date"].apply(lambda d: d.strftime("%Y-%m-%d") if pd.notna(d) else "N/A"),
-                amount=lambda x: x["amount"].map(lambda v: f"{v:,.0f} KZT" if pd.notna(v) else "N/A")
-            )
-            .rename(columns={
-                "category_id": "Category",
-                "account_id": "Account",
-                "note": "Note"
-            })
-        )
-        
-        csv = filtered_df.to_csv(index=False)
-        st.download_button(
-            "⬇️ Download Filtered Data",
-            csv,
-            file_name="transactions_filtered.csv",
-            mime="text/csv"
-        )
-    else:
-        st.info("No transactions match the selected filters")
-    
-    st.header("💰 Budgets")
-    if budgets:
-        budget_data = []
-        for budget in budgets:
-            cat_name = next((c.name for c in categories if c.id == budget.cat_id), "Unknown")
-            spent = sum(t.amount for t in transactions if t.cat_id == budget.cat_id and t.amount < 0)
-            remaining = budget.limit + spent
-            progress = min(100, max(0, (abs(spent) / budget.limit) * 100))
-            
-            budget_data.append({
-                "Category": cat_name,
-                "Limit": budget.limit,
-                "Spent": abs(spent),
-                "Remaining": remaining,
-                "Progress": progress
-            })
-        
-        budget_df = pd.DataFrame(budget_data)
-        for _, row in budget_df.iterrows():
-            st.metric(
-                f"Budget: {row['Category']}",
-                f"{row['Spent']:,.0f} / {row['Limit']:,.0f} KZT",
-                f"{row['Remaining']:,.0f} KZT remaining"
-            )
-            st.progress(row['Progress'] / 100)
-    else:
-        st.info("No budgets defined")
+            st.info("No transactions match the selected filters")
+
+    with st.expander("💰 Budgets", expanded=True):
+        if budgets:
+            budget_data = []
+            for budget in budgets:
+                cat_name = next((c.name for c in categories if c.id == budget.cat_id), "Unknown")
+                spent = sum(t.amount for t in transactions if t.cat_id == budget.cat_id and t.amount < 0)
+                remaining = budget.limit + spent
+                progress = min(100, max(0, (abs(spent) / budget.limit) * 100))
+                budget_data.append({
+                    "Category": cat_name,
+                    "Limit": budget.limit,
+                    "Spent": abs(spent),
+                    "Remaining": remaining,
+                    "Progress": progress
+                })
+            budget_df = pd.DataFrame(budget_data)
+            for _, row in budget_df.iterrows():
+                st.metric(
+                    f"Budget: {row['Category']}",
+                    f"{row['Spent']:,.0f} / {row['Limit']:,.0f} KZT",
+                    f"{row['Remaining']:,.0f} KZT remaining"
+                )
+                st.progress(row['Progress'] / 100)
+        else:
+            st.info("No budgets defined")
 
 elif menu == "🧾 Transactions":
     from core.events import event_bus, TRANSACTION_ADDED, BUDGET_ALERT, BALANCE_ALERT
@@ -386,15 +405,16 @@ elif menu == "🧾 Transactions":
     
     st.subheader("➕ Add New Transaction")
     with st.form("input_form", clear_on_submit=True):
-        col1, col2 = st.columns(2)
+        col1, col2, col3 = st.columns([1, 1, 2])
         with col1:
             date = st.date_input("Date")
             amount = st.number_input("Amount (KZT)", step=100.0, format="%.2f")
         with col2:
             category = st.selectbox("Category", [c.name for c in categories])
             account = st.selectbox("Account", [a.name for a in accounts])
-        description = st.text_input("Description (optional)")
-        submitted = st.form_submit_button("Add Transaction")
+        with col3:
+            description = st.text_input("Description (optional)")
+            submitted = st.form_submit_button("Add Transaction")
 
         if submitted:
             acc_id = next(a.id for a in accounts if a.name == account)
